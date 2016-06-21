@@ -27,6 +27,10 @@
 #endif
 #include <stdio.h>
 #include <stdint.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -45,7 +49,7 @@
 
 static DB_conf_item_t *conf_items;
 static int changed = 0;
-static uintptr_t mutex;
+static db_mutex_t mutex;
 
 void
 conf_init (void) {
@@ -83,7 +87,11 @@ conf_load (void) {
     char fname[l + sizeof(configfile)];
     memcpy (fname, dbconfdir, l);
     memcpy (fname + l, configfile, sizeof (configfile));
+#ifdef __MINGW32__
+    FILE *fp = fopen (fname, "rb");
+#else
     FILE *fp = fopen (fname, "rt");
+#endif
     if (!fp) {
         fprintf (stderr, "failed to load config file\n");
         fp = fopen (fname, "w+b");
@@ -104,6 +112,7 @@ conf_load (void) {
     uint8_t *buffer = malloc (l+1);
     if (l != fread (buffer, 1, l, fp)) {
         free (buffer);
+        fclose (fp);
         fprintf (stderr, "failed to read entire config file to memory\n");
         return -1;
     }
@@ -187,6 +196,10 @@ conf_save (void) {
         }
     }
     fclose (fp);
+#ifdef __MINGW32__
+    if (unlink(str)!=0)
+        fprintf (stderr, "deleting %s failed: %s\n", str, strerror (errno));
+#endif
     err = rename (tempfile, str);
     if (err != 0) {
         fprintf (stderr, "config rename %s -> %s failed: %s\n", tempfile, str, strerror (errno));

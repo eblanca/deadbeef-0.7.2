@@ -31,9 +31,15 @@
 #  include <alloca.h>
 #endif
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <dirent.h>
+#ifndef __MINGW32__
 #include <fnmatch.h>
+#endif
 #include <stdio.h>
 #include <ctype.h>
 #include <sys/types.h>
@@ -42,7 +48,7 @@
 #include <assert.h>
 #include <time.h>
 #include <sys/time.h>
-#ifndef __linux__
+#if !defined(__linux__) && !defined(_POSIX_C_SOURCE)
 #define _POSIX_C_SOURCE 1
 #endif
 #include <limits.h>
@@ -66,6 +72,9 @@
 #include "strdupa.h"
 #include "tf.h"
 #include "playqueue.h"
+#ifdef __MINGW32__
+#include "mingw32_layer.h"
+#endif
 
 // disable custom title function, until we have new title formatting (0.7)
 #define DISABLE_CUSTOM_TITLE
@@ -106,7 +115,7 @@ static playlist_t *playlist = NULL; // current playlist
 static int plt_loading = 0; // disable sending event about playlist switch, config regen, etc
 
 #if !DISABLE_LOCKING
-static uintptr_t mutex;
+static db_mutex_t mutex;
 #endif
 
 #define LOCK {pl_lock();}
@@ -415,6 +424,10 @@ plt_add (int before, const char *title) {
                     fprintf (stderr, "error: failed to make path string for playlist file\n");
                     continue;
                 }
+#ifdef __MINGW32__
+                if (unlink(path2)!=0)
+                    fprintf (stderr, "deleting %s failed: %s\n", path2, strerror (errno));
+#endif
                 int err = rename (path1, path2);
                 if (err != 0) {
                     fprintf (stderr, "playlist rename failed: %s\n", strerror (errno));
@@ -462,6 +475,10 @@ plt_remove (int plt) {
                 fprintf (stderr, "error: failed to make path string for playlist file\n");
                 continue;
             }
+#ifdef __MINGW32__
+            if (unlink(path1)!=0)
+                fprintf (stderr, "deleting %s failed: %s\n", path1, strerror (errno));
+#endif
             int err = rename (path2, path1);
             if (err != 0) {
                 fprintf (stderr, "playlist rename failed: %s\n", strerror (errno));
@@ -695,7 +712,10 @@ plt_move (int from, int to) {
     int err = stat (path1, &st);
     if (!err) {
         trace ("rename %s->%s\n", path1, temp);
-
+#ifdef __MINGW32__
+        if (unlink(temp)!=0)
+            fprintf (stderr, "deleting %s failed: %s\n", temp, strerror (errno));
+#endif
         int err = rename (path1, temp);
         if (err != 0) {
             fprintf (stderr, "playlist rename %s->%s failed: %s\n", path1, temp, strerror (errno));
@@ -735,6 +755,10 @@ plt_move (int from, int to) {
         int err = stat (path2, &st);
         if (!err) {
             trace ("rename %s->%s\n", path2, path1);
+#ifdef __MINGW32__
+            if (unlink(path1)!=0)
+                fprintf (stderr, "deleting %s failed: %s\n", path1, strerror (errno));
+#endif
             int err = rename (path2, path1);
             if (err != 0) {
                 fprintf (stderr, "playlist rename %s->%s failed: %s\n", path2, path1, strerror (errno));
@@ -756,6 +780,10 @@ plt_move (int from, int to) {
         int err = stat (path1, &st);
         if (!err) {
             trace ("rename %s->%s\n", path1, path2);
+#ifdef __MINGW32__
+            if (unlink(path2)!=0)
+                fprintf (stderr, "deleting %s failed: %s\n", path2, strerror (errno));
+#endif
             int err = rename (path1, path2);
             if (err != 0) {
                 fprintf (stderr, "playlist rename %s->%s failed: %s\n", path1, path2, strerror (errno));
@@ -770,6 +798,10 @@ plt_move (int from, int to) {
         int err = stat (temp, &st);
         if (!err) {
             trace ("move %s->%s\n", temp, path1);
+#ifdef __MINGW32__
+            if (unlink(path1)!=0)
+                fprintf (stderr, "deleting %s failed: %s\n", path1, strerror (errno));
+#endif
             int err = rename (temp, path1);
             if (err != 0) {
                 fprintf (stderr, "playlist rename %s->%s failed: %s\n", temp, path1, strerror (errno));
@@ -1490,9 +1522,11 @@ plt_insert_dir_int (int visibility, playlist_t *playlist, DB_vfs_t *vfs, playIte
     if (!follow_symlinks && !vfs) {
         struct stat buf;
         lstat (dirname, &buf);
+#ifndef __MINGW32__
         if (S_ISLNK(buf.st_mode)) {
             return NULL;
         }
+#endif
     }
     struct dirent **namelist = NULL;
     int n;
@@ -2167,6 +2201,10 @@ plt_save (playlist_t *plt, playItem_t *first, playItem_t *last, const char *fnam
 
     UNLOCK;
     fclose (fp);
+#ifdef __MINGW32__
+    if (unlink(fname)!=0)
+        fprintf (stderr, "deleting %s failed: %s\n", fname, strerror (errno));
+#endif
     if (rename (tempfile, fname) != 0) {
         fprintf (stderr, "playlist rename %s -> %s failed: %s\n", tempfile, fname, strerror (errno));
         return -1;

@@ -22,6 +22,10 @@
 */
 
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <assert.h>
 #include <math.h>
@@ -155,7 +159,7 @@ typedef struct {
     float *samples;
     int nsamples;
     int resized;
-    intptr_t mutex;
+    db_mutex_t mutex;
     cairo_surface_t *surf;
 } w_scope_t;
 

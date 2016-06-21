@@ -35,11 +35,25 @@
 #endif
 
 #include <unistd.h>
-#include <stdio.h>
 #include <stdlib.h>
+#ifdef __MINGW32__
+#define _FILE_OFFSET_BITS      64 /* this will enable 64 bit integers as file offset */
+#define __USE_MINGW_FSEEK         /* request mingw internal implementation of fseeko64 */
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#include <winsock2.h>
+#define EINPROGRESS   WSAEINPROGRESS
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#endif
+#include <stdio.h>
+#ifdef __MINGW32__
+#define off_t   off64_t
+#define fseeko  fseeko64
+#define ftello  ftello64
+#endif
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -266,7 +280,12 @@ static int fallback_io_tcp_connect(void *data, const char *host, int port, int *
     return -1;
   }
 
+#ifdef __MINGW32__
+  unsigned long flags = 1;
+  if (ioctlsocket(s, FIONBIO, &flags) == SOCKET_ERROR) {
+#else
   if (fcntl (s, F_SETFL, fcntl (s, F_GETFL) & ~O_NONBLOCK) == -1) {
+#endif
     lprintf("mmsh: failed to set socket flags: %s\n", strerror(errno));
     return -1;
   }

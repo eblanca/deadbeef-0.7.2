@@ -30,10 +30,16 @@
 #include "junklib.h"
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #undef HAVE_ICI
 #if HAVE_ICONV
+#ifndef __MINGW32__
   #define LIBICONV_PLUG
+#endif
   #include <iconv.h>
 #elif HAVE_ICU
   #warning icu
@@ -586,7 +592,7 @@ junk_iconv (const char *in, int inlen, char *out, int outlen, const char *cs_in,
     if (cd == (iconv_t)-1) {
         return -1;
     }
-#ifdef __linux__
+#if defined(__linux__) || defined(__MINGW32__)
     char *pin = (char*)in;
 #else
     const char *pin = in;

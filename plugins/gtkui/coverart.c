@@ -22,6 +22,10 @@
 */
 
 #include <sys/time.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -76,9 +80,9 @@ typedef struct load_query_s {
 } load_query_t;
 
 static int terminate;
-static uintptr_t mutex;
-static uintptr_t cond;
-static uintptr_t tid;
+static db_mutex_t mutex;
+static db_cond_t cond;
+static db_thread_t tid;
 static load_query_t *queue;
 static load_query_t *tail;
 
@@ -664,14 +668,16 @@ void
 cover_art_free (void) {
     trace ("coverart: terminating cover art loader...\n");
 
-    if (tid) {
+    if (deadbeef->thread_exist (tid)) {
         deadbeef->mutex_lock(mutex);
         terminate = 1;
         trace("coverart: sending terminate signal to art loader thread...\n");
         deadbeef->cond_signal(cond);
         deadbeef->mutex_unlock(mutex);
         deadbeef->thread_join(tid);
+#ifndef __MINGW32__
         tid = 0;
+#endif
     }
 
     while (queue) {

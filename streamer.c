@@ -25,6 +25,10 @@
   Alexey Yakovenko waker@users.sourceforge.net
 */
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
@@ -52,6 +56,9 @@
 #include "plugins/libparser/parser.h"
 #include "strdupa.h"
 #include "playqueue.h"
+#ifdef __MINGW32__
+#include "mingw32_layer.h"
+#endif
 
 //#define trace(...) { fprintf(stderr, __VA_ARGS__); }
 #define trace(fmt,...)
@@ -72,7 +79,7 @@ streamer_read_async (char *bytes, int size);
 static int
 streamer_set_output_format (void);
 
-static intptr_t streamer_tid;
+static db_thread_t streamer_tid;
 static ddb_dsp_context_t *dsp_chain;
 static float dsp_ratio = 1;
 
@@ -118,9 +125,9 @@ static ringbuf_t streamer_ringbuf;
 static char streambuffer[STREAM_BUFFER_SIZE];
 
 static int bytes_until_next_song = 0;
-static uintptr_t mutex;
-static uintptr_t currtrack_mutex;
-static uintptr_t wdl_mutex; // wavedata listener
+static db_mutex_t mutex;
+static db_mutex_t currtrack_mutex;
+static db_mutex_t wdl_mutex; // wavedata listener
 
 static int nextsong = -1;
 static int nextsong_pstate = -1;
@@ -855,7 +862,7 @@ typedef struct ctmap_s {
 
 static ctmap_t *streamer_ctmap;
 static char conf_network_ctmapping[2048];
-static uintptr_t ctmap_mutex;
+static db_mutex_t ctmap_mutex;
 
 static void
 ctmap_init_mutex (void) {
@@ -2063,6 +2070,10 @@ streamer_dsp_chain_save_internal (const char *fname, ddb_dsp_context_t *chain) {
     }
 
     fclose (fp);
+#ifdef __MINGW32__
+    if (unlink(fname)!=0)
+        fprintf (stderr, "deleting %s failed: %s\n", fname, strerror (errno));
+#endif
     if (rename (tempfile, fname) != 0) {
         fprintf (stderr, "dspconfig rename %s -> %s failed: %s\n", tempfile, fname, strerror (errno));
         return -1;

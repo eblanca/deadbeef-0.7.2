@@ -38,6 +38,9 @@
 #include <assert.h>
 #include <math.h>
 #include "../../deadbeef.h"
+#ifdef __MINGW32__
+#include <malloc.h>
+#endif
 
 #ifdef TARGET_ANDROID
 int posix_memalign (void **memptr, size_t alignment, size_t size) {
@@ -734,8 +737,13 @@ ffap_init (DB_fileinfo_t *_info, DB_playItem_t *it)
         if (!ape_filter_orders[info->ape_ctx.fset][i])
             break;
         info->ape_ctx.filterbuf_size[i] = (ape_filter_orders[info->ape_ctx.fset][i] * 3 + HISTORY_SIZE) * 4;
+#ifdef __MINGW32__
+        info->ape_ctx.filterbuf[i] = __mingw_aligned_malloc(16, info->ape_ctx.filterbuf_size[i]);
+        if (info->ape_ctx.filterbuf[i] == NULL ) {
+#else
         int err = posix_memalign ((void **)&info->ape_ctx.filterbuf[i], 16, info->ape_ctx.filterbuf_size[i]);
         if (err) {
+#endif
             trace ("ffap: out of memory (posix_memalign)\n");
             return -1;
         }

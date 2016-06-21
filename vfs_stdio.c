@@ -25,6 +25,10 @@
   Alexey Yakovenko waker@users.sourceforge.net
 */
 #include "deadbeef.h"
+#ifdef __MINGW32__
+#define _FILE_OFFSET_BITS      64 /* this will enable 64 bit integers as file offset */
+#define __USE_MINGW_FSEEK         /* request mingw internal implementation of fseeko64 */
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -35,9 +39,16 @@
 #include <unistd.h>
 
 #ifndef __linux__
+#ifdef __MINGW32__
+#define off_t   off64_t
+#define fseeko  fseeko64
+#define ftello  ftello64
+#define USE_STDIO
+#else
 #define off64_t off_t
 #define lseek64 lseek
-#define O_LARGEFILE 0
+#endif /* __MINGW32__ */
+#define O_LARGEFILE 0      /* this is a linux extension, anyway set this to 0 is the same as O_RDONLY */
 #endif
 
 //#define USE_STDIO
@@ -98,6 +109,7 @@ stdio_close (DB_FILE *stream) {
     free (stream);
 }
 
+#ifndef USE_STDIO
 static int
 fillbuffer (STDIO_FILE *f) {
     assert (f->bufremaining >= 0);
@@ -111,6 +123,7 @@ fillbuffer (STDIO_FILE *f) {
     }
     return f->bufremaining;
 }
+#endif
 
 static size_t
 stdio_read (void *ptr, size_t size, size_t nmemb, DB_FILE *stream) {

@@ -29,10 +29,14 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#ifndef __linux__
+#if !defined(__linux__) && !defined(_POSIX_C_SOURCE)
 #define _POSIX_C_SOURCE 1
 #endif
 #include <limits.h>
@@ -58,6 +62,9 @@
 #include "tf.h"
 #include "playqueue.h"
 #include "sort.h"
+#ifdef __MINGW32__
+#include "mingw32_layer.h"
+#endif
 
 #define trace(...) { fprintf(stderr, __VA_ARGS__); }
 //#define trace(fmt,...)
@@ -67,7 +74,11 @@
 #if defined(HAVE_COCOAUI) || defined(OSX_APPBUNDLE)
 #define PLUGINEXT ".dylib"
 #else
+#ifdef __MINGW32__
+#define PLUGINEXT ".dll"
+#else
 #define PLUGINEXT ".so"
+#endif
 #endif
 
 const char *lowprio_plugin_ids[] = {
@@ -114,7 +125,7 @@ static DB_output_t *output_plugin = NULL;
 #define MAX_PLAYLIST_PLUGINS 10
 static DB_playlist_t *g_playlist_plugins[MAX_PLAYLIST_PLUGINS+1];
 
-static uintptr_t background_jobs_mutex;
+static db_mutex_t background_jobs_mutex;
 static int num_background_jobs;
 
 // deadbeef api
@@ -154,6 +165,7 @@ static DB_functions_t deadbeef_api = {
     .thread_start_low_priority = thread_start_low_priority,
     .thread_join = thread_join,
     .thread_detach = thread_detach,
+    .thread_exist = thread_exist,
     .thread_exit = thread_exit,
     .mutex_create = mutex_create,
     .mutex_create_nonrecursive = mutex_create_nonrecursive,
@@ -711,7 +723,7 @@ load_plugin (const char *plugdir, char *d_name, int l) {
 #if defined(ANDROID) || defined(HAVE_COCOAUI)
         return -1;
 #else
-        strcpy (fullname + strlen(fullname) - sizeof (PLUGINEXT)+1, ".fallback.so");
+        strcpy (fullname + strlen(fullname) - sizeof (PLUGINEXT)+1, ".fallback" PLUGINEXT);
         trace ("trying %s...\n", fullname);
         handle = dlopen (fullname, RTLD_NOW);
         if (!handle) {

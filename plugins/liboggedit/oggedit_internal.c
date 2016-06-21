@@ -29,6 +29,10 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <unistd.h>
 #include <libgen.h>
@@ -36,6 +40,9 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include "oggedit_internal.h"
+#ifdef __MINGW32__
+#include "mingw32_layer.h"
+#endif
 
 static char *cat_string(char *dest, const char *src, const char *sep)
 {

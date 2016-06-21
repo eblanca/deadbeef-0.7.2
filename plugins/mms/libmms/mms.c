@@ -29,10 +29,25 @@
 #endif
 
 #include <unistd.h>
-#include <stdio.h>
+#ifdef __MINGW32__
+#define _FILE_OFFSET_BITS      64 /* this will enable 64 bit integers as file offset */
+#define __USE_MINGW_FSEEK         /* request mingw internal implementation of fseeko64 */
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#define WINVER 0x0501
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#endif
+#include <stdio.h>
+#ifdef __MINGW32__
+#define off_t   off64_t
+#define fseeko  fseeko64
+#define ftello  ftello64
+#endif
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -49,6 +64,14 @@
 // use deadbeef's charset conversion instead of iconv
 #include "../../../deadbeef.h"
 extern DB_functions_t *deadbeef;
+#endif
+
+#ifdef __MINGW32__
+#include "../../../mingw32_layer.h"
+#define MSG_DONTWAIT  0   /* useless when you set all your sockets as 'non-blocking' */
+#define EINPROGRESS   WSAEINPROGRESS
+#define EALREADY      WSAEALREADY
+#define EISCONN       WSAEISCONN
 #endif
 
 /********** logging **********/
@@ -256,7 +279,12 @@ static int fallback_io_tcp_connect(void *data, const char *host, int port, int *
     return -1;
   }
 
+#ifdef __MINGW32__
+  unsigned long flags = 1;
+  if (ioctlsocket(s, FIONBIO, &flags) == SOCKET_ERROR) {
+#else
   if (fcntl (s, F_SETFL, fcntl (s, F_GETFL) | O_NONBLOCK) == -1) {
+#endif
     lprintf("mms: failed to set socket flags: %s\n", strerror(errno));
     return -1;
   }

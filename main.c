@@ -30,6 +30,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__ /* this will make stdlib.h declare the prototype for '_fullpath' */
+#endif
 #include <stdlib.h>
 #include <stddef.h>
 #include <time.h>
@@ -37,7 +40,7 @@
 #ifdef __linux__
 #include <sys/prctl.h>
 #endif
-#ifndef __linux__
+#if !defined(__linux__) && !defined(_POSIX_C_SOURCE)
 #define _POSIX_C_SOURCE 1
 #endif
 #include <limits.h>
@@ -45,11 +48,16 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/types.h>
+#ifdef __MINGW32__
+#include <winsock2.h>
+#define DEFAULT_LISTENING_PORT    48879
+#else
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/un.h>
-#include <sys/fcntl.h>
 #include <sys/errno.h>
+#endif
+#include <sys/fcntl.h>
 #include <signal.h>
 #ifdef __GLIBC__
 #include <execinfo.h>
@@ -70,6 +78,9 @@
 #endif
 #include "playqueue.h"
 #include "tf.h"
+#ifdef __MINGW32__
+#include "mingw32_layer.h"
+#endif
 
 #ifndef PREFIX
 #error PREFIX must be defined
@@ -403,8 +414,13 @@ server_exec_command_line (const char *cmdline, int len, char *sendback, int sbsi
     return 0;
 }
 
+#ifdef __MINGW32__
+static struct sockaddr_in srv_local;
+static struct sockaddr_in srv_remote;
+#else
 static struct sockaddr_un srv_local;
 static struct sockaddr_un srv_remote;
+#endif
 static unsigned srv_socket;
 
 #if USE_ABSTRACT_SOCKET_NAME
@@ -413,7 +429,17 @@ static char server_id[] = "\0deadbeefplayer";
 
 int
 server_start (void) {
+    int len;
+
     fprintf (stderr, "server_start\n");
+#ifdef __MINGW32__
+    srv_socket = socket (AF_INET, SOCK_STREAM, 0);
+    unsigned long flags = 1;
+    if (ioctlsocket(srv_socket, FIONBIO, &flags) == SOCKET_ERROR) {
+        perror ("ioctlsocket FIONBIO");
+        return -1;
+    }
+#else
     srv_socket = socket (AF_UNIX, SOCK_STREAM, 0);
     int flags;
     flags = fcntl (srv_socket, F_GETFL,0);
@@ -425,20 +451,30 @@ server_start (void) {
         perror ("fcntl F_SETFL");
         return -1;
     }
+#endif
     memset (&srv_local, 0, sizeof (srv_local));
+
+#ifdef __MINGW32__
+    srv_local.sin_family      = AF_INET;
+    srv_local.sin_addr.s_addr = INADDR_ANY;
+    srv_local.sin_port        = htons(DEFAULT_LISTENING_PORT);
+
+    len = sizeof(srv_local);
+#else
     srv_local.sun_family = AF_UNIX;
 
 #if USE_ABSTRACT_SOCKET_NAME
     memcpy (srv_local.sun_path, server_id, sizeof (server_id));
-    int len = offsetof(struct sockaddr_un, sun_path) + sizeof (server_id)-1;
+    len = offsetof(struct sockaddr_un, sun_path) + sizeof (server_id)-1;
 #else
     char *socketdirenv = getenv ("DDB_SOCKET_DIR");
     snprintf (srv_local.sun_path, sizeof (srv_local.sun_path), "%s/socket", socketdirenv ? socketdirenv : dbconfdir);
     if (unlink(srv_local.sun_path) < 0) {
         perror ("INFO: unlink socket");
     }
-    int len = offsetof(struct sockaddr_un, sun_path) + strlen (srv_local.sun_path);
+    len = offsetof(struct sockaddr_un, sun_path) + strlen (srv_local.sun_path);
 #endif
+#endif /* __MINGW32__ */
 
     if (bind(srv_socket, (struct sockaddr *)&srv_local, len) < 0) {
         perror ("bind");
@@ -455,7 +491,11 @@ server_start (void) {
 void
 server_close (void) {
     if (srv_socket) {
+#ifdef __MINGW32__
+        closesocket (srv_socket);
+#else
         close (srv_socket);
+#endif
         srv_socket = 0;
     }
 }
@@ -527,7 +567,11 @@ server_update (void) {
         else {
             send (s2, "", 1, 0);
         }
+#ifdef __MINGW32__
+        closesocket (s2);
+#else
         close(s2);
+#endif
 
         if (buf) {
             free(buf);
@@ -536,7 +580,7 @@ server_update (void) {
     return 0;
 }
 
-static uintptr_t server_tid;
+static db_thread_t server_tid;
 static int server_terminate;
 
 void
@@ -728,7 +772,7 @@ restore_resume_state (void) {
     }
 }
 
-uintptr_t mainloop_tid;
+db_thread_t mainloop_tid;
 
 DB_plugin_t *
 plug_get_gui (void) {
@@ -744,10 +788,12 @@ plug_get_gui (void) {
 void
 main_cleanup_and_quit (void) {
     // terminate server and wait for completion
-    if (server_tid) {
+    if (thread_exist (server_tid)) {
         server_terminate = 1;
         thread_join (server_tid);
+#ifndef __MINGW32__
         server_tid = 0;
+#endif
     }
 
     // save config
@@ -866,6 +912,13 @@ main (int argc, char *argv[]) {
     prctl (PR_SET_NAME, "deadbeef-main", 0, 0, 0, 0);
 #endif
 
+#ifdef __MINGW32__
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
+        fprintf(stderr, "Error with WSAStartup(), WinSock startup failed.\n");
+    else
+        fprintf(stderr, "WinSock init ok, library version %d.%d\n", HIBYTE(wsaData.wVersion), LOBYTE(wsaData.wVersion));
+#endif
 #if PORTABLE_FULL
     if (snprintf (confdir, sizeof (confdir), "%s/config", dbinstalldir) > sizeof (confdir)) {
         fprintf (stderr, "fatal: too long install path %s\n", dbinstalldir);
@@ -993,15 +1046,28 @@ main (int argc, char *argv[]) {
 
     // try to connect to remote player
     int s, len;
-    struct sockaddr_un remote;
 
+#ifdef __MINGW32__
+    struct sockaddr_in remote;
+    if ((s = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
+#else
+    struct sockaddr_un remote;
     if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+#endif
         perror("socket");
         exit(1);
     }
 
     memset (&remote, 0, sizeof (remote));
+#ifdef __MINGW32__
+    remote.sin_family      = AF_INET;
+    remote.sin_addr.s_addr = inet_addr("127.0.0.1");
+    remote.sin_port        = htons(DEFAULT_LISTENING_PORT);
+
+    len = sizeof(remote);
+#else
     remote.sun_family = AF_UNIX;
+
 #if USE_ABSTRACT_SOCKET_NAME
     memcpy (remote.sun_path, server_id, sizeof (server_id));
     len = offsetof(struct sockaddr_un, sun_path) + sizeof (server_id)-1;
@@ -1010,6 +1076,7 @@ main (int argc, char *argv[]) {
     snprintf (remote.sun_path, sizeof (remote.sun_path), "%s/socket", socketdirenv ? socketdirenv : dbconfdir);
     len = offsetof(struct sockaddr_un, sun_path) + strlen (remote.sun_path);
 #endif
+#endif /* __MINGW32__ */
     if (connect(s, (struct sockaddr *)&remote, len) == 0) {
         // pass args to remote and exit
         if (send(s, cmdline, size, 0) == -1) {
@@ -1044,14 +1111,21 @@ main (int argc, char *argv[]) {
         if (out) {
             free (out);
         }
+#ifdef __MINGW32__
+        closesocket (s);
+#else
         close (s);
+#endif
         exit (0);
     }
 //    else {
 //        perror ("INFO: failed to connect to existing session:");
 //    }
+#ifdef __MINGW32__
+    closesocket (s);
+#else
     close(s);
-
+#endif
     // become a server
     if (server_start () < 0) {
         exit (-1);

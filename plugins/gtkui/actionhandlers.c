@@ -25,6 +25,10 @@
 #endif
 
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <gtk/gtk.h>
 #include <unistd.h>
@@ -772,7 +776,7 @@ action_load_playlist_handler_cb (void *data) {
         gchar *fname = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (dlg));
         gtk_widget_destroy (dlg);
         if (fname) {
-            uintptr_t tid = deadbeef->thread_start (load_playlist_thread, fname);
+            db_thread_t tid = deadbeef->thread_start (load_playlist_thread, fname);
             deadbeef->thread_detach (tid);
         }
     }

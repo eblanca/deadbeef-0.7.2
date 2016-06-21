@@ -26,6 +26,10 @@
 #endif
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <math.h>
 #include <assert.h>
@@ -723,7 +727,7 @@ on_write_tags_clicked                  (GtkButton       *button,
     gtk_window_set_transient_for (GTK_WINDOW (progressdlg), GTK_WINDOW (trackproperties));
 
     // start new thread for writing metadata
-    intptr_t tid = deadbeef->thread_start (write_meta_worker, NULL);
+    db_thread_t tid = deadbeef->thread_start (write_meta_worker, NULL);
     deadbeef->thread_detach (tid);
 }
 

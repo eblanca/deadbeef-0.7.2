@@ -204,13 +204,15 @@ void cache_configchanged (void)
 
 void stop_cache_cleaner (void)
 {
-    if (tid) {
+    if (deadbeef->thread_exist (tid)) {
         deadbeef->mutex_lock (thread_mutex);
         terminate = 1;
         deadbeef->cond_signal (thread_cond);
         deadbeef->mutex_unlock (thread_mutex);
         deadbeef->thread_join (tid);
+#ifndef __MINGW32__
         tid = 0;
+#endif
         trace ("Cache cleaner thread stopped\n");
     }
 
@@ -242,7 +244,7 @@ int start_cache_cleaner (void)
         trace ("Cache cleaner thread started\n");
     }
 
-    if (!tid) {
+    if (!deadbeef->thread_exist (tid)) {
         stop_cache_cleaner ();
         return -1;
     }

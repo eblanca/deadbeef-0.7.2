@@ -4,7 +4,16 @@
 
 #include "blargg_endian.h"
 #include "blargg_common.h"
+#ifdef __MINGW32__
+#define _FILE_OFFSET_BITS      64 /* this will enable 64 bit integers as file offset */
+#define __USE_MINGW_FSEEK         /* request mingw internal implementation of fseeko64 */
+#endif
 #include <stdio.h>
+#ifdef __MINGW32__
+#define off_t   off64_t
+#define fseeko  fseeko64
+#define ftello  ftello64
+#endif
 #include <errno.h>
 
 #if BLARGG_UTF8_PATHS

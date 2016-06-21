@@ -27,6 +27,10 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <math.h>
 #include "gme/gme.h"
@@ -89,7 +93,7 @@ read_gzfile (const char *fname, char **buffer, int *size) {
                 tmp = "/tmp";
             }
             char nm[PATH_MAX];
-#if defined(ANDROID) || defined(STATICLINK)
+#if defined(ANDROID) || defined(STATICLINK) || defined(__MINGW32__)
             snprintf (nm, sizeof (nm), "%s/ddbgmeXXXXXX", tmp);
             fd = mkstemp (nm);
 #else

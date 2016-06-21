@@ -29,6 +29,10 @@
 #endif
 #include <stdlib.h>
 #include <stdint.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <ctype.h>
 #include "oggedit_internal.h"

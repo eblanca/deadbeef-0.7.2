@@ -34,30 +34,48 @@
 #include <config.h>
 #endif
 
-intptr_t
+db_thread_t
 thread_start (void (*fn)(void *ctx), void *ctx) {
     pthread_t tid;
     pthread_attr_t attr;
     int s = pthread_attr_init (&attr);
     if (s != 0) {
         fprintf (stderr, "pthread_attr_init failed: %s\n", strerror (s));
+#ifdef __MINGW32__
+        tid.p = NULL;
+        tid.x = 0;
+        return tid;
+#else
         return 0;
+#endif
     }
 
     s = pthread_create (&tid, &attr, (void *(*)(void *))fn, (void*)ctx);
     if (s != 0) {
         fprintf (stderr, "pthread_create failed: %s\n", strerror (s));
+#ifdef __MINGW32__
+        tid.p = NULL;
+        tid.x = 0;
+        return tid;
+#else
         return 0;
+#endif
     }
     s = pthread_attr_destroy (&attr);
     if (s != 0) {
         fprintf (stderr, "pthread_attr_destroy failed: %s\n", strerror (s));
+#ifdef __MINGW32__
+        tid.p = NULL;
+        tid.x = 0;
+        return tid;
+#else
         return 0;
+#endif
     }
     return tid;
 }
 
-intptr_t
+db_thread_t
 thread_start_low_priority (void (*fn)(void *ctx), void *ctx) {
 #if defined(__linux__) && !defined(ANDROID)
     pthread_t tid;
@@ -104,7 +122,7 @@ thread_start_low_priority (void (*fn)(void *ctx), void *ctx) {
 }
 
 int
-thread_join (intptr_t tid) {
+thread_join (db_thread_t tid) {
     void *retval;
     int s = pthread_join ((pthread_t)tid, &retval);
     if (s) {
@@ -115,7 +133,7 @@ thread_join (intptr_t tid) {
 }
 
 int
-thread_detach (intptr_t tid) {
+thread_detach (db_thread_t tid) {
     int s = pthread_detach ((pthread_t)tid);
     if (s) {
         fprintf (stderr, "pthread_detach failed: %s\n", strerror (s));
@@ -124,12 +142,17 @@ thread_detach (intptr_t tid) {
     return 0;
 }
 
+int
+thread_exist (db_thread_t tid) {
+    return (pthread_kill (tid, 0) == 0);
+}
+
 void
 thread_exit (void *retval) {
     pthread_exit (retval);
 }
 
-uintptr_t
+db_mutex_t
 mutex_create_nonrecursive (void) {
     pthread_mutex_t *mtx = malloc (sizeof (pthread_mutex_t));
     pthread_mutexattr_t attr = {0};
@@ -138,13 +161,17 @@ mutex_create_nonrecursive (void) {
     int err = pthread_mutex_init (mtx, &attr);
     if (err != 0) {
         fprintf (stderr, "pthread_mutex_init failed: %s\n", strerror (err));
+#ifdef __MINGW32__
+        return NULL;
+#else
         return 0;
+#endif
     }
     pthread_mutexattr_destroy (&attr);
-    return (uintptr_t)mtx;
+    return (db_mutex_t)mtx;
 }
 
-uintptr_t
+db_mutex_t
 mutex_create (void) {
     pthread_mutex_t *mtx = malloc (sizeof (pthread_mutex_t));
     pthread_mutexattr_t attr = {0};
@@ -153,21 +180,25 @@ mutex_create (void) {
     int err = pthread_mutex_init (mtx, &attr);
     if (err != 0) {
         fprintf (stderr, "pthread_mutex_init failed: %s\n", strerror (err));
+#ifdef __MINGW32__
+        return NULL;
+#else
         return 0;
+#endif
     }
     pthread_mutexattr_destroy (&attr);
-    return (uintptr_t)mtx;
+    return (db_mutex_t)mtx;
 }
 
 void
-mutex_free (uintptr_t _mtx) {
+mutex_free (db_mutex_t _mtx) {
     pthread_mutex_t *mtx = (pthread_mutex_t *)_mtx;
     pthread_mutex_destroy (mtx);
     free (mtx);
 }
 
 int
-mutex_lock (uintptr_t _mtx) {
+mutex_lock (db_mutex_t _mtx) {
     pthread_mutex_t *mtx = (pthread_mutex_t *)_mtx;
     int err = pthread_mutex_lock (mtx);
     if (err != 0) {
@@ -177,7 +208,7 @@ mutex_lock (uintptr_t _mtx) {
 }
 
 int
-mutex_unlock (uintptr_t _mtx) {
+mutex_unlock (db_mutex_t _mtx) {
     pthread_mutex_t *mtx = (pthread_mutex_t *)_mtx;
     int err = pthread_mutex_unlock (mtx);
     if (err != 0) {
@@ -186,19 +217,23 @@ mutex_unlock (uintptr_t _mtx) {
     return err;
 }
 
-uintptr_t
+db_cond_t
 cond_create (void) {
     pthread_cond_t *cond = malloc (sizeof (pthread_cond_t));
     int err = pthread_cond_init (cond, NULL);
     if (err != 0) {
         fprintf (stderr, "pthread_cond_init failed: %s\n", strerror (err));
+#ifdef __MINGW32__
+        return NULL;
+#else
         return 0;
+#endif
     }
-    return (uintptr_t)cond;
+    return (db_cond_t)cond;
 }
 
 void
-cond_free (uintptr_t c) {
+cond_free (db_cond_t c) {
     if (c) {
         pthread_cond_t *cond = (pthread_cond_t *)c;
         pthread_cond_destroy (cond);
@@ -207,7 +242,7 @@ cond_free (uintptr_t c) {
 }
 
 int
-cond_wait (uintptr_t c, uintptr_t m) {
+cond_wait (db_cond_t c, db_mutex_t m) {
     pthread_cond_t *cond = (pthread_cond_t *)c;
     pthread_mutex_t *mutex = (pthread_mutex_t *)m;
     int err = mutex_lock (m);
@@ -222,7 +257,7 @@ cond_wait (uintptr_t c, uintptr_t m) {
 }
 
 int
-cond_signal (uintptr_t c) {
+cond_signal (db_cond_t c) {
     pthread_cond_t *cond = (pthread_cond_t *)c;
     int err = pthread_cond_signal (cond);
     if (err != 0) {
@@ -232,7 +267,7 @@ cond_signal (uintptr_t c) {
 }
 
 int
-cond_broadcast (uintptr_t c) {
+cond_broadcast (db_cond_t c) {
     pthread_cond_t *cond = (pthread_cond_t *)c;
     int err = pthread_cond_broadcast (cond);
     if (err != 0) {

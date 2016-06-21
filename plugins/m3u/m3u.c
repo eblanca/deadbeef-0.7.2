@@ -24,12 +24,19 @@
 #ifdef HAVE_CONFIG_H
 #  include "../../config.h"
 #endif
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <math.h> // for ceil
 
 #include "../../deadbeef.h"
+#ifdef __MINGW32__
+#include "mingw32_layer.h"
+#endif
 
 //#define trace(...) { fprintf(stderr, __VA_ARGS__); }
 #define trace(fmt,...)

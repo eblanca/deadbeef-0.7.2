@@ -28,6 +28,10 @@
 #include <gtk/gtk.h>
 #include <math.h>
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
@@ -39,6 +43,9 @@
 #include "../../deadbeef.h"
 #include "gtkui.h"
 #include "pluginconf.h"
+#ifdef __MINGW32__
+#include "mingw32_layer.h"
+#endif
 
 static ddb_dsp_context_t *chain;
 static GtkWidget *prefwin;

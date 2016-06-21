@@ -36,9 +36,11 @@
 static DB_output_t plugin;
 DB_functions_t *deadbeef;
 
-static intptr_t null_tid;
+static db_thread_t null_tid;
 static int null_terminate;
 static int state;
+static int nullout_simulate = 0;
+int bytesread;
 
 static void
 pnull_callback (char *stream, int len);
@@ -71,14 +73,26 @@ int
 pnull_init (void) {
     trace ("pnull_init\n");
     state = OUTPUT_STATE_STOPPED;
+    nullout_simulate = deadbeef->conf_get_int ("null.simulate", 0);
     null_terminate = 0;
     null_tid = deadbeef->thread_start (pnull_thread, NULL);
+    return 0;
+}
+
+static int
+null_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
+    switch (id) {
+    case DB_EV_CONFIGCHANGED:
+        nullout_simulate = deadbeef->conf_get_int ("null.simulate", 0);
+        break;
+    }
     return 0;
 }
 
 int
 pnull_setformat (ddb_waveformat_t *fmt) {
     memcpy (&plugin.fmt, fmt, sizeof (ddb_waveformat_t));
+    trace("nullout: new format sr %d ch %d bps %d\n",plugin.fmt.samplerate,plugin.fmt.channels,plugin.fmt.bps);
     return 0;
 }
 
@@ -86,11 +100,13 @@ int
 pnull_free (void) {
     trace ("pnull_free\n");
     if (!null_terminate) {
-        if (null_tid) {
+        if (deadbeef->thread_exist (null_tid)) {
             null_terminate = 1;
             deadbeef->thread_join (null_tid);
         }
+#ifndef __MINGW32__
         null_tid = 0;
+#endif
         state = OUTPUT_STATE_STOPPED;
         null_terminate = 0;
     }
@@ -99,7 +115,7 @@ pnull_free (void) {
 
 int
 pnull_play (void) {
-    if (!null_tid) {
+    if (!deadbeef->thread_exist (null_tid)) {
         pnull_init ();
     }
     state = OUTPUT_STATE_PLAYING;
@@ -143,6 +159,9 @@ pnull_get_endianness (void) {
 
 static void
 pnull_thread (void *context) {
+#define AUDIO_BUFFER_SIZE (64*1024)
+    char buf[AUDIO_BUFFER_SIZE];
+    float sleep_time;
 #ifdef __linux__
     prctl (PR_SET_NAME, "deadbeef-null", 0, 0, 0, 0);
 #endif
@@ -154,9 +173,14 @@ pnull_thread (void *context) {
             usleep (10000);
             continue;
         }
-        
-        char buf[4096];
-        pnull_callback (buf, 1024);
+
+        pnull_callback (buf, AUDIO_BUFFER_SIZE);
+        /* 'consuming' audio data */
+        if (nullout_simulate && bytesread > 0)
+        {
+            sleep_time = 8000000.0/plugin.fmt.samplerate*bytesread/plugin.fmt.channels/plugin.fmt.bps;
+            usleep((int)sleep_time);
+        }
     }
 }
 
@@ -164,9 +188,10 @@ static void
 pnull_callback (char *stream, int len) {
     if (!deadbeef->streamer_ok_to_read (len)) {
         memset (stream, 0, len);
+        bytesread = 0;
         return;
     }
-    int bytesread = deadbeef->streamer_read (stream, len);
+    bytesread = deadbeef->streamer_read (stream, len);
 
     if (bytesread < len) {
         memset (stream + bytesread, 0, len-bytesread);
@@ -193,6 +218,10 @@ nullout_load (DB_functions_t *api) {
     deadbeef = api;
     return DB_PLUGIN (&plugin);
 }
+
+static const char settings_dlg[] =
+    "property \"Simulate audio output\" checkbox null.simulate 0;\n"
+;
 
 // define plugin interface
 static DB_output_t plugin = {
@@ -229,6 +258,8 @@ static DB_output_t plugin = {
     .plugin.website = "http://deadbeef.sf.net",
     .plugin.start = null_start,
     .plugin.stop = null_stop,
+    .plugin.configdialog = settings_dlg,
+    .plugin.message = null_message,
     .init = pnull_init,
     .free = pnull_free,
     .setformat = pnull_setformat,

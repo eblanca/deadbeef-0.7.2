@@ -65,7 +65,7 @@ static inline void blargg_dprintf_( const char [], ... ) { }
 #include <stdio.h>
 #undef  dprintf
 #define dprintf (1) ? (void) 0 : blargg_dprintf_
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(__MINGW32__)
 #include <stdio.h>
 static inline void blargg_dprintf_( const char * fmt, ... )
 {

@@ -22,6 +22,10 @@
 */
 
 #include <stdio.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <stdlib.h>
 

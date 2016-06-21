@@ -29,6 +29,10 @@
 #include <gdk/gdkkeysyms.h>
 #include <math.h>
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include "../../gettext.h"
 

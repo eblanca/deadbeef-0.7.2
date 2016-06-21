@@ -29,6 +29,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <dirent.h>
+#include "threading.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -598,21 +599,22 @@ typedef struct {
     void (*quit) (void);
 
     // threading
-    intptr_t (*thread_start) (void (*fn)(void *ctx), void *ctx);
-    intptr_t (*thread_start_low_priority) (void (*fn)(void *ctx), void *ctx);
-    int (*thread_join) (intptr_t tid);
-    int (*thread_detach) (intptr_t tid);
+    db_thread_t (*thread_start) (void (*fn)(void *ctx), void *ctx);
+    db_thread_t (*thread_start_low_priority) (void (*fn)(void *ctx), void *ctx);
+    int (*thread_join) (db_thread_t tid);
+    int (*thread_detach) (db_thread_t tid);
+    int (*thread_exist) (db_thread_t tid);
     void (*thread_exit) (void *retval);
-    uintptr_t (*mutex_create) (void);
-    uintptr_t (*mutex_create_nonrecursive) (void);
-    void (*mutex_free) (uintptr_t mtx);
-    int (*mutex_lock) (uintptr_t mtx);
-    int (*mutex_unlock) (uintptr_t mtx);
-    uintptr_t (*cond_create) (void);
-    void (*cond_free) (uintptr_t cond);
-    int (*cond_wait) (uintptr_t cond, uintptr_t mutex);
-    int (*cond_signal) (uintptr_t cond);
-    int (*cond_broadcast) (uintptr_t cond);
+    db_mutex_t (*mutex_create) (void);
+    db_mutex_t (*mutex_create_nonrecursive) (void);
+    void (*mutex_free) (db_mutex_t mtx);
+    int (*mutex_lock) (db_mutex_t mtx);
+    int (*mutex_unlock) (db_mutex_t mtx);
+    db_cond_t (*cond_create) (void);
+    void (*cond_free) (db_cond_t cond);
+    int (*cond_wait) (db_cond_t cond, db_mutex_t mutex);
+    int (*cond_signal) (db_cond_t cond);
+    int (*cond_broadcast) (db_cond_t cond);
 
     /////// playlist management //////
     void (*plt_ref) (ddb_playlist_t *plt);

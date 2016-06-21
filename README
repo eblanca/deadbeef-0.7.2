@@ -57,3 +57,50 @@ actual package names for your Linux distribution may vary.
 2. licensing
 
 DeaDBeeF core uses ZLIB license. See COPYING in each subdirectory for details.
+
+
+
+
+
+---------------------------
+
+MinGW section
+(please note, this whole source code tree is still a work in progress - no warranty provided)
+
+The needed libraries above will build and install almost out-of-the-box.
+For jansson, download the latest git master branch, because I committed a fix for mingw environment which allows the full test suite to complete.
+
+With recent versions of pthreadwin32 (installed with msys1/mingw) you'll have to comment out the declaration of time_t type (into pthread.h), since it is already declared elsewhere.
+
+You'll get a ready-to-go binary zip file with GTK+2.24.10 on www.gtk.org, it contains also every single dependency library needed for deadbeef (gdk, glib, gthread, pango, cairo, atk and so on).
+Well, if you prefer GTK+3 or any other gtk release, feel free to try. Version 2 is what I used, since it is easy to go with.
+
+At the time of writing, I am quite confident a minimal deadbeef binary can be built with:
+
+./configure --disable-gtk3 --disable-vtx --disable-gme --disable-sid --disable-adplug --disable-wildmidi --disable-tta --disable-mms --disable-psf --disable-dumb --disable-shn --disable-sc68 --disable-dca --disable-shellexec --disable-ffap --disable-alac --disable-wma --disable-nls --disable-converter
+
+It will support mp3 (if you install mad and/or mpg123), vorbis (if you install libogg and libvorbis) and musepack (it is shipped with deadbeef) decoding.
+Unfortunately, no audio output yet.
+The default null output plugin will be built, and so all that you'll get is a nice deadbeef window featuring audio decoding - no more, no less.
+It is still a good starting point, though.
+
+After the usual dance of 'make' and 'make install' you will be able to run deadbeef but - nothing else will happen.
+Why?
+Plugins are missing! - well, they are yet to be built for windows environment, that is, they have to be built as dll libraries.
+
+This step is pretty easy - just annoying.
+Go into the plugin directory (you have to follow this step for every plugin you want to build/install) and type:
+
+gcc -shared -o somethingplugin.dll *.o libdependency.a -Wl,-no-undefined -Wl,--enable-runtime-pseudo-reloc
+
+where somethingplugin.dll is the name of the output dll. IT IS MANDATORY the dll has to be named as the plugin it contains!
+If not, deadbeef won't find the entry point for the functions it searches it in.
+Replace that *.o with the object files created by make and those libdependency.a with the library needed for the full linking process. For example, when linking the mp3 deconding library, mp3.dll, you will need to link libmad.a also (include FULL path!).
+
+Copy the dll file when deadbeef will find it (just read the directories it searches at startup) and the whole game will play nicely.
+(I will fix those directories, but this is far in my TODO list)
+
+Have fun.
+
+Elio
+

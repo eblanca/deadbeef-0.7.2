@@ -27,6 +27,9 @@
 
 #include <string.h>
 #include <inttypes.h>
+#ifdef __MINGW32__
+#include <stdlib.h>  /* for the needed 'llabs' */
+#endif
 
 #include "dca.h"
 #include "dca_internal.h"

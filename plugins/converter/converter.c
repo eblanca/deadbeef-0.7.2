@@ -29,6 +29,10 @@
 #endif
 #include <stdlib.h>
 #include <limits.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -39,6 +43,9 @@
 #include "converter.h"
 #include "../../deadbeef.h"
 #include "../../strdupa.h"
+#ifdef __MINGW32__
+#include "../../mingw32_layer.h"
+#endif
 
 #ifndef __linux__
 #define O_LARGEFILE 0

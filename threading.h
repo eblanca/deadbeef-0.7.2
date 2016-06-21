@@ -27,52 +27,65 @@
 #ifndef __THREADING_H
 #define __THREADING_H
 
+#ifdef __MINGW32__
+#include <pthread.h>
+typedef pthread_t       db_thread_t;
+typedef pthread_mutex_t *db_mutex_t;
+typedef pthread_cond_t  *db_cond_t;
+#else
 #include <stdint.h>
+#define db_thread_t intptr_t
+#define db_mutex_t  uintptr_t
+#define db_cond_t   uintptr_t
+#endif
 
-intptr_t
+db_thread_t//intptr_t
 thread_start (void (*fn)(void *ctx), void *ctx);
 
-intptr_t
+db_thread_t//intptr_t
 thread_start_low_priority (void (*fn)(void *ctx), void *ctx);
 
 int
-thread_join (intptr_t tid);
+thread_join (db_thread_t/*intptr_t*/ tid);
 
 int
-thread_detach (intptr_t tid);
+thread_detach (db_thread_t/*intptr_t*/ tid);
+
+int
+thread_exist (db_thread_t/*intptr_t*/ tid);
 
 void
 thread_exit (void *retval);
 
-uintptr_t
+db_mutex_t//uintptr_t
 mutex_create (void);
 
-uintptr_t
+db_mutex_t//uintptr_t
 mutex_create_nonrecursive (void);
 
 void
-mutex_free (uintptr_t mtx);
+mutex_free (db_mutex_t/*uintptr_t*/ mtx);
 
 int
-mutex_lock (uintptr_t mtx);
+mutex_lock (db_mutex_t/*uintptr_t*/ mtx);
 
 int
-mutex_unlock (uintptr_t mtx);
+mutex_unlock (db_mutex_t/*uintptr_t*/ mtx);
 
-uintptr_t
+db_cond_t//uintptr_t
 cond_create (void);
 
 void
-cond_free (uintptr_t cond);
+cond_free (db_cond_t/*uintptr_t*/ cond);
 
 int
-cond_wait (uintptr_t cond, uintptr_t mutex);
+cond_wait (db_cond_t/*uintptr_t*/ cond, db_mutex_t/*uintptr_t*/ mutex);
 
 int
-cond_signal (uintptr_t cond);
+cond_signal (db_cond_t/*uintptr_t*/ cond);
 
 int
-cond_broadcast (uintptr_t cond);
+cond_broadcast (db_cond_t/*uintptr_t*/ cond);
 
 #endif
 

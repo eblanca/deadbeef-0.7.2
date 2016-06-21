@@ -5,7 +5,12 @@
 #include <ctype.h>
 #include <unistd.h>
 
+#ifdef __MINGW32__
+#include <windows.h>
+#include "../../mingw32_layer.h"
+#else
 #include <sys/mman.h>
+#endif
 #include <sys/stat.h>
 #include <fcntl.h>
 
@@ -213,7 +218,13 @@ ayemu_vtx_t * ayemu_vtx_header_from_file(const char *filename)
 {
   ayemu_vtx_t *ret;
   size_t size;
+#ifdef __MINGW32__
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  const size_t page_size = (size_t) si.dwPageSize;
+#else
   const size_t page_size = (size_t) sysconf (_SC_PAGESIZE);
+#endif
   int fd;
   struct stat st;
 
@@ -252,7 +263,13 @@ ayemu_vtx_t * ayemu_vtx_header_from_file(const char *filename)
 ayemu_vtx_t * ayemu_vtx_load_from_file(const char *filename)
 {
   size_t size;
+#ifdef __MINGW32__
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  const size_t page_size = (size_t) si.dwPageSize;
+#else
   const size_t page_size = (size_t) sysconf (_SC_PAGESIZE);
+#endif
   int fd;
   struct stat st;
   ayemu_vtx_t *ret;

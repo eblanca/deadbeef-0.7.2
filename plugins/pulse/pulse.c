@@ -220,12 +220,14 @@ static int pulse_free(void)
 {
     trace("pulse_free\n");
 
-    if (!pulse_tid) {
+    if (!deadbeef->thread_exist (pulse_tid)) {
         return 0;
     }
 
     intptr_t tid = pulse_tid;
+#ifndef __MINGW32__
     pulse_tid = 0;
+#endif
     pulse_terminate = 1;
     deadbeef->thread_join(tid);
 
@@ -242,7 +244,7 @@ static int pulse_free(void)
 static int pulse_play(void)
 {
     trace ("pulse_play\n");
-    if (!pulse_tid)
+    if (!deadbeef->thread_exist (pulse_tid))
     {
         if (pulse_init () < 0)
         {

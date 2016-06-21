@@ -34,7 +34,7 @@ typedef struct {
     float preamp;
     void *paramsroot;
     int params_changed;
-    uintptr_t mutex;
+    db_mutex_t mutex;
     SuperEqState state;
     int enabled;
 } ddb_supereq_ctx_t;

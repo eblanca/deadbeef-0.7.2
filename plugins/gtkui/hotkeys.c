@@ -49,6 +49,10 @@ typedef struct
 #  include <config.h>
 #endif
 #include <gtk/gtk.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include "../../gettext.h"
@@ -57,7 +61,7 @@ typedef struct
 #include "interface.h"
 #include "../libparser/parser.h"
 #include "../hotkeys/hotkeys.h"
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__MINGW32__)
 #include <X11/Xlib.h> // only for the KeySym type
 #endif
 #include "hotkeys.h"

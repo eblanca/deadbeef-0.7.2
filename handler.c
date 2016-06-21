@@ -24,13 +24,13 @@
 
   Alexey Yakovenko waker@users.sourceforge.net
 */
-#include "handler.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
-#include "handler.h"
 #include "threading.h"
+#include "handler.h"
 
 typedef struct message_s {
     uint32_t id;
@@ -45,8 +45,8 @@ typedef struct handler_s {
     message_t *mfree;
     message_t *mqueue;
     message_t *mqtail;
-    uintptr_t mutex;
-    uintptr_t cond;
+    db_mutex_t mutex;
+    db_cond_t cond;
     message_t pool[1];
 } handler_t;
 

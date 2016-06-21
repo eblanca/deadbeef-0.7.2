@@ -2075,7 +2075,7 @@ artwork_get_actions (DB_playItem_t *it)
 static int
 artwork_plugin_stop (void)
 {
-    if (tid) {
+    if (deadbeef->thread_exist (tid)) {
         trace ("Stopping fetcher thread ... \n");
         deadbeef->mutex_lock (queue_mutex);
         queue_clear ();
@@ -2089,7 +2089,9 @@ artwork_plugin_stop (void)
         }
         deadbeef->mutex_unlock (queue_mutex);
         deadbeef->thread_join (tid);
+#ifndef __MINGW32__
         tid = 0;
+#endif
         trace ("Fetcher thread stopped\n");
     }
     if (queue_mutex) {
@@ -2131,7 +2133,7 @@ artwork_plugin_start (void)
     if (queue_mutex && queue_cond) {
         tid = deadbeef->thread_start_low_priority (fetcher_thread, NULL);
     }
-    if (!tid) {
+    if (!deadbeef->thread_exist (tid)) {
         artwork_plugin_stop ();
         return -1;
     }

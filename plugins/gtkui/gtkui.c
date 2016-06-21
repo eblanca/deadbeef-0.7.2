@@ -27,6 +27,10 @@
 #ifdef HAVE_CONFIG_H
 #include "../../config.h"
 #endif
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
@@ -57,10 +61,12 @@
 #include "gtkui_api.h"
 #include "wingeom.h"
 #include "widgets.h"
+#ifndef __MINGW32__
 #ifndef __APPLE__
 #include "X11/Xlib.h"
 #else
 #include "retina.h"
+#endif
 #endif
 #include "actionhandlers.h"
 #include "hotkeys.h"

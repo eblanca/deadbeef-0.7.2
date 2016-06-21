@@ -45,8 +45,8 @@ static message_t pool[MAX_MESSAGES];
 static message_t *mfree;
 static message_t *mqueue;
 static message_t *mqtail;
-static uintptr_t mutex;
-static uintptr_t cond;
+static db_mutex_t mutex;
+static db_cond_t cond;
 
 static void
 messagepump_reset (void);
