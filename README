@@ -70,7 +70,7 @@ MinGW section
 The needed libraries above will build and install almost out-of-the-box.
 For jansson, download the latest git master branch, because I committed a fix for mingw environment which allows the full test suite to complete.
 
-With recent versions of pthreadwin32 (installed with msys1/mingw) you'll have to comment out the declaration of time_t type (into pthread.h), since it is already declared elsewhere.
+With recent versions of pthreads-win32 (installed with msys1/mingw) you'll have to comment out the declaration of timespec struct type (into pthread.h), since it is already declared in parts/time.h and this will raise a compilation error.
 
 You'll get a ready-to-go binary zip file with GTK+2.24.10 on www.gtk.org, it contains also every single dependency library needed for deadbeef (gdk, glib, gthread, pango, cairo, atk and so on).
 Well, if you prefer GTK+3 or any other gtk release, feel free to try. Version 2 is what I used, since it is easy to go with.
