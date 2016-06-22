@@ -305,7 +305,11 @@ static int fallback_io_tcp_connect(void *data, const char *host, int port, int *
     
     return s;
   }
+#ifdef __MINGW32__
+  closesocket(s);
+#else
   close(s);
+#endif
   return -1;
 }
 
@@ -866,7 +870,11 @@ static int mmsh_connect_int (mms_io_t *io, mmsh_t *this, off_t seek, uint32_t ti
   
   /* Close exisiting connection (if any) and connect */
   if (this->s != -1)
+#ifdef __MINGW32__
+    closesocket(this->s);
+#else
     close(this->s);
+#endif
 
   if (mmsh_tcp_connect(io, this)) {
     return 0;
@@ -897,8 +905,12 @@ static int mmsh_connect_int (mms_io_t *io, mmsh_t *this, off_t seek, uint32_t ti
   if (!this->packet_length || !this->num_stream_ids)
     goto fail;
   
+#ifdef __MINGW32__
+  closesocket(this->s);
+#else
   close(this->s);
-  
+#endif
+
   /* choose the best quality for the audio stream */
   /* i've never seen more than one audio stream */
   for (i = 0; i < this->num_stream_ids; i++) {
@@ -1031,7 +1043,11 @@ static int mmsh_connect_int (mms_io_t *io, mmsh_t *this, off_t seek, uint32_t ti
   }
   return 1;
 fail:
+#ifdef __MINGW32__
+  closesocket(this->s);
+#else
   close(this->s);
+#endif
   this->s = -1;
   return 0;
 }
@@ -1152,7 +1168,11 @@ fail:
   if (uri)
     gnet_uri_delete(uri);
   if (this->s != -1)
+#ifdef __MINGW32__
+    closesocket(this->s);
+#else
     close(this->s);
+#endif
   if (this->url)
     free(this->url);
   if (this->proxy_url)
@@ -1381,7 +1401,11 @@ off_t mmsh_seek (mms_io_t *io, mmsh_t *this, off_t offset, int origin) {
           this->packet_length  != orig_asf_packet_len) {
         lprintf("mmsh: AIIEEE asf header or packet length changed on re-open for seek\n");
         /* Its a different stream, so its useless! */
+#ifdef __MINGW32__
+        closesocket (this->s);
+#else
         close (this->s);
+#endif
         this->s = -1;
         return this->current_pos = -1;
       }
@@ -1423,7 +1447,11 @@ off_t mmsh_seek (mms_io_t *io, mmsh_t *this, off_t offset, int origin) {
         this->packet_length  != orig_asf_packet_len) {
       lprintf("mmsh: AIIEEE asf header or packet length changed on re-open for seek\n");
       /* Its a different stream, so its useless! */
+#ifdef __MINGW32__
+      closesocket (this->s);
+#else
       close (this->s);
+#endif
       this->s = -1;
       return this->current_pos = -1;
     }
@@ -1475,7 +1503,11 @@ int mmsh_time_seek (mms_io_t *io, mmsh_t *this, double time_sec) {
       this->packet_length  != orig_asf_packet_len) {
     lprintf("mmsh: AIIEEE asf header or packet length changed on re-open for seek\n");
     /* Its a different stream, so its useless! */
+#ifdef __MINGW32__
+    closesocket (this->s);
+#else
     close (this->s);
+#endif
     this->s = -1;
     this->current_pos = -1;
     return 0;
@@ -1493,7 +1525,11 @@ int mmsh_time_seek (mms_io_t *io, mmsh_t *this, double time_sec) {
 
 void mmsh_close (mmsh_t *this) {
   if (this->s != -1)
+#ifdef __MINGW32__
+    closesocket(this->s);
+#else
     close(this->s);
+#endif
   if (this->url)
     free(this->url);
   if (this->proxy_url)

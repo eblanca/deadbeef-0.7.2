@@ -37,6 +37,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include "../../deadbeef.h"
+#ifdef __MINGW32__
+#include <malloc.h>
+#endif
 
 #define min(x,y) ((x)<(y)?(x):(y))
 #define max(x,y) ((x)>(y)?(x):(y))

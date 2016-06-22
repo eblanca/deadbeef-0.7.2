@@ -33,6 +33,11 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#include <malloc.h>
+#endif
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

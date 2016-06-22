@@ -354,7 +354,11 @@ static int fallback_io_tcp_connect(void *data, const char *host, int port, int *
       freeaddrinfo(res);
   }
 #endif
+#ifdef __MINGW32__
+  closesocket(s);
+#else
   close(s);
+#endif
   return -1;
 }
 
@@ -1418,7 +1422,11 @@ mms_t *mms_connect (mms_io_t *io, void *data, const char *url, int bandwidth, in
 
 fail:
   if (this->s != -1)
+#ifdef __MINGW32__
+    closesocket (this->s);
+#else
     close (this->s);
+#endif
   if (this->url)
     free(this->url);
   if (this->guri)
@@ -1901,7 +1909,11 @@ off_t mms_seek (mms_io_t *io, mms_t *this, off_t offset, int origin) {
 
 void mms_close (mms_t *this) {
   if (this->s != -1)
+#ifdef __MINGW32__
+    closesocket (this->s);
+#else
     close (this->s);
+#endif
   if (this->url)
     free(this->url);
   if (this->guri)

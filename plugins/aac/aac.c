@@ -17,6 +17,10 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -28,6 +32,9 @@
 #include <math.h>
 #include "../../deadbeef.h"
 #include "aac_parser.h"
+#ifdef __MINGW32__
+#include "mingw32_layer.h"
+#endif
 
 #include "mp4ff.h"
 
