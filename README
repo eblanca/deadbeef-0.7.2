@@ -83,6 +83,7 @@ It will support mp3 (if you install mad and/or mpg123), vorbis (if you install l
 Unfortunately, no audio output yet.
 The default null output plugin will be built, and so all that you'll get is a nice deadbeef window featuring audio decoding - no more, no less.
 It is still a good starting point, though.
+A WaveOut output plugin is on the way, and the included source (into plugins/waveout/) will currently do nothing. Nevertheless, you can build it (no, it won't be built by make, you have to build it on your own), install it, open preference window and see deadbeef choose between two output plugins - nice!
 
 After the usual dance of 'make' and 'make install' you will be able to run deadbeef but - nothing else will happen.
 Why?
@@ -94,10 +95,10 @@ Go into the plugin directory (you have to follow this step for every plugin you 
 gcc -shared -o somethingplugin.dll *.o libdependency.a -Wl,-no-undefined -Wl,--enable-runtime-pseudo-reloc
 
 where somethingplugin.dll is the name of the output dll. IT IS MANDATORY the dll has to be named as the plugin it contains!
-If not, deadbeef won't find the entry point for the functions it searches it in.
-Replace that *.o with the object files created by make and those libdependency.a with the library needed for the full linking process. For example, when linking the mp3 deconding library, mp3.dll, you will need to link libmad.a also (include FULL path!).
+If different, deadbeef won't find the entry point for the functions it searches it in.
+Replace that *.o with the object files created by make and those libdependency.a with the library needed for the full linking process. For example, when linking the mp3 deconding library, mp3.dll, you will need to link libmad.a (and/or libmpg123.a) also (include their FULL path!).
 
-Copy the dll file when deadbeef will find it (just read the directories it searches at startup) and the whole game will play nicely.
+Copy the dll file where deadbeef will find it (just read the directories it searches at startup) and the whole game will play nicely.
 (I will fix those directories, but this is far in my TODO list)
 
 Have fun.
