@@ -79,13 +79,18 @@ At the time of writing, I am quite confident a minimal deadbeef binary can be bu
 
 ./configure --disable-gtk3 --disable-vtx --disable-gme --disable-sid --disable-adplug --disable-wildmidi --disable-tta --disable-mms --disable-psf --disable-dumb --disable-shn --disable-sc68 --disable-dca --disable-shellexec --disable-ffap --disable-alac --disable-wma --disable-nls --disable-converter
 
-It will support mp3 (if you install mad and/or mpg123), vorbis (if you install libogg and libvorbis) and musepack (it is shipped with deadbeef) decoding.
+It will support mp3 (if you install mad and/or mpg123), vorbis (if you install libogg and libvorbis) and musepack (it is shipped with deadbeef) decoding. (maybe something else, disable what's unwanted)
 Unfortunately, no audio output yet.
 The default null output plugin will be built, and so all that you'll get is a nice deadbeef window featuring audio decoding - no more, no less.
 It is still a good starting point, though.
 A WaveOut output plugin is on the way, and the included source (into plugins/waveout/) will currently do nothing. Nevertheless, you can build it (no, it won't be built by make, you have to build it on your own), install it, open preference window and see deadbeef choose between two output plugins - nice!
 
-After the usual dance of 'make' and 'make install' you will be able to run deadbeef but - nothing else will happen.
+After the usual 'make' the main executable should be built (linking against wsock32 is needed).
+Note: chances are that recent mingw compiler (gcc) creates an executable which needs an extra lib, called libgcc_s_dw2-1.dll.
+Now, want a static deadbeef executable (I do) ? Then add the '-static' option to the compiler command line.
+Have static and shared versions of pthreads libraries (I do) ? The default behaviour is to build against the shared version (dll) but you'll have to ship the library together with your executable. If this is not what you want, then add the '-DPTW32_STATIC_LIB' definition to the preprocessor flags and you will get deadbeef.exe with no pthread dependency.
+
+Now, 'make install' will install the package and you will be able to run deadbeef but - nothing else will happen.
 Why?
 Plugins are missing! - well, they are yet to be built for windows environment, that is, they have to be built as dll libraries.
 
