@@ -935,7 +935,11 @@ plug_load_all (void) {
         strncpy (xdg_plugin_dir, xdg_local_home, sizeof (xdg_plugin_dir));
         xdg_plugin_dir[sizeof(xdg_plugin_dir)-1] = 0;
     } else {
+#ifdef __MINGW32__
+        char *homedir = getenv ("USERPROFILE");
+#else
         char *homedir = getenv ("HOME");
+#endif
 
         if (!homedir) {
             trace ("plug_load_all: warning: unable to find home directory\n");
@@ -945,7 +949,11 @@ plug_load_all (void) {
             // multilib support:
             // 1. load from lib$ARCH if present
             // 2. load from lib if present
+#ifdef __MINGW32__
+            int written = snprintf (xdg_plugin_dir, sizeof (xdg_plugin_dir), "%s/.config/deadbeef/plugins", homedir);
+#else
             int written = snprintf (xdg_plugin_dir, sizeof (xdg_plugin_dir), "%s/.local/lib/deadbeef", homedir);
+#endif
             if (written > sizeof (xdg_plugin_dir)) {
                 trace ("warning: XDG_LOCAL_HOME value is too long: %s. Ignoring.", xdg_local_home);
                 xdg_plugin_dir[0] = 0;
@@ -959,7 +967,11 @@ plug_load_all (void) {
     }
 
     // load from HOME 1st, than replace from installdir if needed
+#ifdef __MINGW32__
+    const char *plugins_dirs[] = { xdg_plugin_dir, dirname, NULL };
+#else
     const char *plugins_dirs[] = { xdg_plugin_dir_explicit_arch, xdg_plugin_dir, dirname, NULL };
+#endif
 
     // If xdg_plugin_dir and dirname is the same, we should avoid each plugin
     // to be load twice.

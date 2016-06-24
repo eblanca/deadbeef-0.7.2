@@ -847,6 +847,9 @@ mainloop_thread (void *ctx) {
 
 int
 main (int argc, char *argv[]) {
+#ifdef __MINGW32__
+    char current_dir[MAX_PATH];
+#endif
     int portable = 0;
 #if STATICLINK
     int staticlink = 1;
@@ -854,6 +857,9 @@ main (int argc, char *argv[]) {
     int staticlink = 0;
 #endif
 #if PORTABLE
+#ifdef __MINGW32__
+    GetCurrentDirectory(PATH_MAX, dbinstalldir);
+#else
     portable = 1;
     if (!realpath (argv[0], dbinstalldir)) {
         strcpy (dbinstalldir, argv[0]);
@@ -866,6 +872,7 @@ main (int argc, char *argv[]) {
         fprintf (stderr, "couldn't determine install folder from path %s\n", argv[0]);
         exit (-1);
     }
+#endif /* __MINGW32__ */
 #else
     if (!realpath (argv[0], dbinstalldir)) {
         strcpy (dbinstalldir, argv[0]);
@@ -932,7 +939,11 @@ main (int argc, char *argv[]) {
         return -1;
     }
 #else
+#ifdef __MINGW32__
+    char *homedir = getenv ("USERPROFILE");
+#else
     char *homedir = getenv ("HOME");
+#endif
     if (!homedir) {
         fprintf (stderr, "unable to find home directory. stopping.\n");
         return -1;
@@ -1003,11 +1014,23 @@ main (int argc, char *argv[]) {
                 return -1;
             }
         }
+#ifdef __MINGW32__
+        else
+        {
+            GetCurrentDirectory(MAX_PATH, current_dir);
+            if (snprintf (dbplugindir, sizeof (dbplugindir), "%s/plugins", current_dir) > sizeof (dbplugindir)) {
+#else
         else if (snprintf (dbplugindir, sizeof (dbplugindir), "%s/deadbeef", LIBDIR) > sizeof (dbplugindir)) {
+#endif
             fprintf (stderr, "fatal: too long install path %s\n", dbinstalldir);
             return -1;
         }
+#ifdef __MINGW32__
+        }
+        if (snprintf (dbpixmapdir, sizeof (dbpixmapdir), "%s/pixmaps", current_dir) > sizeof (dbpixmapdir)) {
+#else
         if (snprintf (dbpixmapdir, sizeof (dbpixmapdir), "%s/share/deadbeef/pixmaps", PREFIX) > sizeof (dbpixmapdir)) {
+#endif
             fprintf (stderr, "fatal: too long install path %s\n", dbinstalldir);
             return -1;
         }
