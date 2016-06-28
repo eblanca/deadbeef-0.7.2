@@ -34,5 +34,6 @@ int scandir (const char *__dir, struct dirent ***__namelist, int (*__selector) (
 void *mmap(void *, size_t, int, int, int, off_t);
 int munmap(void *, size_t);
 char *strndup(char *, size_t);
+char *strcasestr(const char *, const char *);
 
 #endif
