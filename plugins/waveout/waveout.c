@@ -58,6 +58,7 @@ static int waveout_simulate = 1;
 static const char settings_dlg[COMBOBOX_LAYOUT_STRING_LENGTH];
 int bytesread;
 static WAVEFORMATEXTENSIBLE wave_format;
+static HWAVEOUT device_handle;
 
 //static void
 //pwaveout_callback (char *stream, int len);
@@ -98,14 +99,14 @@ pwaveout_init (void) {
 
 static int
 waveout_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
-    trace ("waveout_message\n");
+//    trace ("waveout_message\n");
 
     switch (id) {
     case DB_EV_CONFIGCHANGED:
         waveout_device = deadbeef->conf_get_int ("waveout.dev", 0) - 1;
+		trace("waveout_message: selected device code is %d\n",waveout_device);
         break;
     }
-    trace("waveout: selected device code is %d\n",waveout_device);
     return 0;
 }
 
@@ -170,6 +171,7 @@ pwaveout_setformat (ddb_waveformat_t *fmt) {
     if (openresult != MMSYSERR_NOERROR)
     {
         trace("waveout: audio format not supported by the selected device (result=%d)\n",openresult);
+		memset((void *)&wave_format, 0, sizeof(WAVEFORMATEXTENSIBLE));
         result = -1;
     }
     else
@@ -201,8 +203,15 @@ pwaveout_play (void) {
     }
     if (deadbeef->thread_exist (waveout_tid))
     {
-        state = OUTPUT_STATE_PLAYING;
-        result = 0;
+		if (wave_format.Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE)
+		{
+			/* device setup is ok, let's open */
+			if (waveOutOpen(&device_handle, waveout_device, (WAVEFORMATEX *)&wave_format, 0, 0, CALLBACK_NULL) == MMSYSERR_NOERROR)
+			{
+				state = OUTPUT_STATE_PLAYING;
+				result = 0;
+			}
+		}
     }
     return result;
 }
@@ -211,6 +220,8 @@ int
 pwaveout_stop (void) {
     trace("pwaveout_stop\n");
     state = OUTPUT_STATE_STOPPED;
+	waveOutReset(device_handle);
+	waveOutClose(device_handle);
     deadbeef->streamer_reset (1);
     return 0;
 }
@@ -222,7 +233,11 @@ pwaveout_pause (void) {
         return -1;
     }
     // set pause state
-    state = OUTPUT_STATE_PAUSED;
+	if (state == OUTPUT_STATE_PLAYING)
+	{
+		waveOutPause(device_handle);
+		state = OUTPUT_STATE_PAUSED;
+	}
     return 0;
 }
 
@@ -231,6 +246,7 @@ pwaveout_unpause (void) {
     trace("pwaveout_unpause\n");
     // unset pause state
     if (state == OUTPUT_STATE_PAUSED) {
+		waveOutRestart(device_handle);
         state = OUTPUT_STATE_PLAYING;
     }
     return 0;
@@ -265,6 +281,7 @@ pwaveout_thread (void *context) {
 #define AUDIO_BUFFER_SIZE 4096
     char buf[AUDIO_BUFFER_SIZE];
     float sleep_time;
+	WAVEHDR waveout_header;
     trace("pwaveout_thread started\n");
     for (;;) {
         if (wave_terminate) {
@@ -279,8 +296,15 @@ pwaveout_thread (void *context) {
         /* 'consuming' audio data */
         if (/*waveout_simulate &&*/ bytesread > 0)
         {
-            sleep_time = 8000000.0/wave_format.Format.nSamplesPerSec*bytesread/wave_format.Format.nChannels/wave_format.Format.wBitsPerSample;
-            usleep((int)sleep_time);
+			memset((void *)&waveout_header, 0, sizeof(WAVEHDR));
+			waveout_header.dwBufferLength = bytesread;
+			waveout_header.lpData = buf;
+			waveOutPrepareHeader(device_handle, &waveout_header, sizeof(WAVEHDR));
+			waveOutWrite(device_handle, &waveout_header, sizeof(WAVEHDR));
+			usleep(20000);
+			waveOutUnprepareHeader(device_handle, &waveout_header, sizeof(WAVEHDR));
+            //sleep_time = 8000000.0/wave_format.Format.nSamplesPerSec*bytesread/wave_format.Format.nChannels/wave_format.Format.wBitsPerSample;
+            //usleep((int)sleep_time);
         }
     }
     trace("pwaveout_thread terminating\n");
