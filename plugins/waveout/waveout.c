@@ -326,15 +326,17 @@ waveout_start (void) {
     num_devices = waveOutGetNumDevs();
     if (num_devices != 0)
     {
-        snprintf((char *)settings_dlg, COMBOBOX_LAYOUT_STRING_LENGTH,
+        snprintf((char *)settings_dlg, COMBOBOX_LAYOUT_STRING_LENGTH-4,
                  "property \"Audio device\" select[%d] waveout.dev 0 Default ", num_devices+1);
         for (idx=0; idx<num_devices; idx++)
         {
             if (waveOutGetDevCaps(idx, &woc, sizeof(WAVEOUTCAPS)) == MMSYSERR_NOERROR)
             {
                 snprintf(new_dev, 40, " \"%s\"", woc.szPname);
-                strncat((char *)settings_dlg, new_dev, COMBOBOX_LAYOUT_STRING_LENGTH);
+                strncat((char *)settings_dlg, new_dev, COMBOBOX_LAYOUT_STRING_LENGTH-4);
             }
+            else
+                strncat((char *)settings_dlg, "\"(no description)\"", COMBOBOX_LAYOUT_STRING_LENGTH-4);
         }
         strncat((char *)settings_dlg, " ;\n", COMBOBOX_LAYOUT_STRING_LENGTH);
     }
