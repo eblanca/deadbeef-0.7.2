@@ -28,6 +28,11 @@
 
         #define __USE_MINGW_ANSI_STDIO 1
 
+
+#define AUDIO_BUFFER_NO         10
+#define AUDIO_BUFFER_SIZE     3072
+
+
 //#include <stdint.h>
 #include <unistd.h>
 //#ifdef __linux__
@@ -52,13 +57,18 @@ DB_functions_t *deadbeef;
 static unsigned int waveout_device;
 static db_thread_t waveout_tid;
 static int wave_terminate;
-static int state;
-static int waveout_simulate = 1;
+static int state, waveout_shutdown;
+static int audio_blocks_sent, audio_block_write_index, idle_pause;
 #define COMBOBOX_LAYOUT_STRING_LENGTH   1024
 static const char settings_dlg[COMBOBOX_LAYOUT_STRING_LENGTH];
 int bytesread;
 static WAVEFORMATEXTENSIBLE wave_format;
 static HWAVEOUT device_handle;
+static WAVEHDR waveout_headers[AUDIO_BUFFER_NO];
+static CRITICAL_SECTION waveoutCS;
+static void *audio_data;
+
+int audio_format_change_pending;
 
 //static void
 //pwaveout_callback (char *stream, int len);
@@ -88,7 +98,8 @@ pwaveout_thread (void *context);
 //pwaveout_unpause (void);
 
 int
-pwaveout_init (void) {
+pwaveout_init (void)
+{
     trace ("pwaveout_init\n");
     state = OUTPUT_STATE_STOPPED;
 //    waveout_simulate = deadbeef->conf_get_int ("null.simulate", 0);
@@ -98,20 +109,22 @@ pwaveout_init (void) {
 }
 
 static int
-waveout_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
+waveout_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2)
+{
 //    trace ("waveout_message\n");
 
     switch (id) {
-    case DB_EV_CONFIGCHANGED:
+        case DB_EV_CONFIGCHANGED:
         waveout_device = deadbeef->conf_get_int ("waveout.dev", 0) - 1;
-		trace("waveout_message: selected device code is %d\n",waveout_device);
+        trace("waveout_message: selected device code is %d\n",waveout_device);
         break;
     }
     return 0;
 }
 
 int
-pwaveout_setformat (ddb_waveformat_t *fmt) {
+pwaveout_setformat (ddb_waveformat_t *fmt)
+{
     int result = 0;
     MMRESULT openresult;
 
@@ -167,23 +180,34 @@ pwaveout_setformat (ddb_waveformat_t *fmt) {
     if (fmt->channelmask & DDB_SPEAKER_TOP_BACK_RIGHT)
         wave_format.dwChannelMask |= SPEAKER_TOP_BACK_RIGHT;
 
-    openresult = waveOutOpen(NULL, waveout_device, (WAVEFORMATEX *)&wave_format, 0, 0, WAVE_FORMAT_QUERY);
-    if (openresult != MMSYSERR_NOERROR)
+    if (state != OUTPUT_STATE_PLAYING)
     {
-        trace("waveout: audio format not supported by the selected device (result=%d)\n",openresult);
-		memset((void *)&wave_format, 0, sizeof(WAVEFORMATEXTENSIBLE));
-        result = -1;
+        openresult = waveOutOpen(NULL, waveout_device, (WAVEFORMATEX *)&wave_format, 0, 0, WAVE_FORMAT_QUERY);
+        if (openresult != MMSYSERR_NOERROR)
+        {
+            trace("waveout: audio format not supported by the selected device (result=%d)\n",openresult);
+            memset((void *)&wave_format, 0, sizeof(WAVEFORMATEXTENSIBLE));
+            result = -1;
+        }
+        else
+            trace ("waveout: the selected device is able to play what we want!\n");
     }
     else
-        trace ("waveout: the selected device is able to play what we want!\n");
+    {
+        /* cannot query the audio device just now - promise we'll do this later */
+        audio_format_change_pending = 1;
+    }
     return result;
 }
 
 int
-pwaveout_free (void) {
+pwaveout_free (void)
+{
     trace ("pwaveout_free\n");
-    if (!wave_terminate) {
-        if (deadbeef->thread_exist (waveout_tid)) {
+    if (!wave_terminate)
+    {
+        if (deadbeef->thread_exist (waveout_tid))
+        {
             wave_terminate = 1;
             deadbeef->thread_join (waveout_tid);
         }
@@ -193,67 +217,96 @@ pwaveout_free (void) {
     return 0;
 }
 
+void CALLBACK waveOutProc(HWAVEOUT  hwo,
+                          UINT      uMsg,
+                          DWORD_PTR dwInstance,
+                          DWORD_PTR dwParam1,
+                          DWORD_PTR dwParam2)
+{
+    if (uMsg == WOM_DONE)
+    {
+//fprintf(stderr,"we're into waveOutProc!\n")
+        EnterCriticalSection(&waveoutCS);
+        audio_blocks_sent--;
+        LeaveCriticalSection(&waveoutCS);
+        waveOutUnprepareHeader(device_handle, (LPWAVEHDR)dwParam1, sizeof(WAVEHDR));
+        if (audio_blocks_sent == 0 && state == OUTPUT_STATE_STOPPED)
+        {
+            /* we've finished playing sounds after a 'stop' signal, shut down audio device */
+            waveout_shutdown = 1;
+        }
+    }
+}
+
 int
-pwaveout_play (void) {
+pwaveout_play (void)
+{
     int result = -1;
 
     trace("pwaveout_play\n");
-    if (!deadbeef->thread_exist (waveout_tid)) {
+    if (!deadbeef->thread_exist (waveout_tid))
+    {
         pwaveout_init ();
     }
     if (deadbeef->thread_exist (waveout_tid))
     {
-		if (wave_format.Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE)
-		{
-			/* device setup is ok, let's open */
-			if (waveOutOpen(&device_handle, waveout_device, (WAVEFORMATEX *)&wave_format, 0, 0, CALLBACK_NULL) == MMSYSERR_NOERROR)
-			{
-				state = OUTPUT_STATE_PLAYING;
-				result = 0;
-			}
-		}
+        if (wave_format.Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE)
+        {
+            /* device setup is ok, let's open */
+            if (waveOutOpen(&device_handle, waveout_device, (WAVEFORMATEX *)&wave_format, (DWORD_PTR)waveOutProc, 0, CALLBACK_FUNCTION) == MMSYSERR_NOERROR)
+            {
+                state = OUTPUT_STATE_PLAYING;
+                /* prepare a pause value being slightly littler than a single audio block duration */
+                idle_pause = (int)((double)AUDIO_BUFFER_SIZE / (double)wave_format.Format.nAvgBytesPerSec * (double)800000000 ); /* nanoseconds */
+                result = 0;
+            }
+        }
     }
     return result;
 }
 
 int
-pwaveout_stop (void) {
+pwaveout_stop (void)
+{
     trace("pwaveout_stop\n");
     state = OUTPUT_STATE_STOPPED;
-	waveOutReset(device_handle);
-	waveOutClose(device_handle);
+//    waveOutReset(device_handle);
+//    waveOutClose(device_handle);
     deadbeef->streamer_reset (1);
     return 0;
 }
 
 int
-pwaveout_pause (void) {
+pwaveout_pause (void)
+{
     trace("pwaveout_pause\n");
     if (state == OUTPUT_STATE_STOPPED) {
         return -1;
     }
     // set pause state
-	if (state == OUTPUT_STATE_PLAYING)
-	{
-		waveOutPause(device_handle);
-		state = OUTPUT_STATE_PAUSED;
-	}
+    if (state == OUTPUT_STATE_PLAYING)
+    {
+        waveOutPause(device_handle);
+        state = OUTPUT_STATE_PAUSED;
+    }
     return 0;
 }
 
 int
-pwaveout_unpause (void) {
+pwaveout_unpause (void)
+{
     trace("pwaveout_unpause\n");
     // unset pause state
     if (state == OUTPUT_STATE_PAUSED) {
-		waveOutRestart(device_handle);
+        waveOutRestart(device_handle);
         state = OUTPUT_STATE_PLAYING;
     }
     return 0;
 }
 
 static int
-pwaveout_get_endianness (void) {
+pwaveout_get_endianness (void)
+{
     trace("pwaveout_get_endianness\n");
 #if WORDS_BIGENDIAN
     return 1;
@@ -262,49 +315,87 @@ pwaveout_get_endianness (void) {
 #endif
 }
 
+/*
 static void
-pwaveout_callback (char *stream, int len) {
-    if (!deadbeef->streamer_ok_to_read (len)) {
+pwaveout_callback (char *stream, int len)
+{
+    if (!deadbeef->streamer_ok_to_read (len))
+    {
         memset (stream, 0, len);
         bytesread = 0;
         return;
     }
     bytesread = deadbeef->streamer_read (stream, len);
 
-    if (bytesread < len) {
+    if (bytesread < len)
+    {
         memset (stream + bytesread, 0, len-bytesread);
     }
-}
+}*/
 
 static void
-pwaveout_thread (void *context) {
-#define AUDIO_BUFFER_SIZE 4096
-    char buf[AUDIO_BUFFER_SIZE];
+pwaveout_thread (void *context)
+{
+//    char buf[AUDIO_BUFFER_SIZE];
     float sleep_time;
-	WAVEHDR waveout_header;
     trace("pwaveout_thread started\n");
-    for (;;) {
-        if (wave_terminate) {
+    while (1)
+    {
+        if (wave_terminate)
             break;
-        }
-        if (state != OUTPUT_STATE_PLAYING) {
-            usleep (10000);
-            continue;
-        }
 
-        pwaveout_callback (buf, AUDIO_BUFFER_SIZE);
-        /* 'consuming' audio data */
-        if (/*waveout_simulate &&*/ bytesread > 0)
+        if (state != OUTPUT_STATE_PLAYING)
         {
-			memset((void *)&waveout_header, 0, sizeof(WAVEHDR));
-			waveout_header.dwBufferLength = bytesread;
-			waveout_header.lpData = buf;
-			waveOutPrepareHeader(device_handle, &waveout_header, sizeof(WAVEHDR));
-			waveOutWrite(device_handle, &waveout_header, sizeof(WAVEHDR));
-			usleep(20000);
-			waveOutUnprepareHeader(device_handle, &waveout_header, sizeof(WAVEHDR));
-            //sleep_time = 8000000.0/wave_format.Format.nSamplesPerSec*bytesread/wave_format.Format.nChannels/wave_format.Format.wBitsPerSample;
-            //usleep((int)sleep_time);
+fprintf(stderr,"waveout_shutdown=%d\n",waveout_shutdown);
+            if (state == OUTPUT_STATE_STOPPED && waveout_shutdown)
+            {
+                trace("pwaveout_thread: shutting down device\n");
+                waveOutReset(device_handle);
+                waveOutClose(device_handle);
+
+                waveout_shutdown = 0;
+            }
+            else
+            {
+                __mingw_sleep(0, 20000000); /* __mingw_sleep(seconds, nanoseconds) */
+            }
+        }
+        else
+//        if (!audio_format_change_pending)
+        {
+            /* is the device full? */
+            if (audio_blocks_sent == AUDIO_BUFFER_NO)
+                /* idle wait */
+                __mingw_sleep(0, idle_pause);
+            /* 'consuming' audio data */
+            while (deadbeef->streamer_ok_to_read(AUDIO_BUFFER_SIZE)
+                   &&
+                   audio_blocks_sent<AUDIO_BUFFER_NO)
+//            if (/*waveout_simulate &&*/ bytesread > 0)
+            {
+fprintf(stderr, "ciclo %d\n",audio_blocks_sent);
+                memset((void *)&waveout_headers[audio_block_write_index], 0, sizeof(WAVEHDR));
+//                pwaveout_callback (buf, AUDIO_BUFFER_SIZE);
+                bytesread = deadbeef->streamer_read(audio_data+audio_block_write_index*AUDIO_BUFFER_SIZE, AUDIO_BUFFER_SIZE);
+                waveout_headers[audio_block_write_index].dwBufferLength = bytesread;
+                waveout_headers[audio_block_write_index].lpData = audio_data+audio_block_write_index*AUDIO_BUFFER_SIZE;
+                waveOutPrepareHeader(device_handle, &waveout_headers[audio_block_write_index], sizeof(WAVEHDR));
+                waveOutWrite(device_handle, &waveout_headers[audio_block_write_index], sizeof(WAVEHDR));
+                EnterCriticalSection(&waveoutCS);
+                audio_blocks_sent++;
+                LeaveCriticalSection(&waveoutCS);
+                audio_block_write_index = (audio_block_write_index+1) % AUDIO_BUFFER_NO;
+//                usleep(10000);
+//                waveOutUnprepareHeader(device_handle, &waveout_header, sizeof(WAVEHDR));
+                //sleep_time = 8000000.0/wave_format.Format.nSamplesPerSec*bytesread/wave_format.Format.nChannels/wave_format.Format.wBitsPerSample;
+                //usleep((int)sleep_time);
+            }
+            if (audio_blocks_sent == 0 && audio_format_change_pending)
+            {
+                /* handle the format change... */
+
+                audio_format_change_pending = 0;
+            }
         }
     }
     trace("pwaveout_thread terminating\n");
@@ -315,39 +406,66 @@ pwaveout_get_state (void) {
     return state;
 }
 
+/*
+ * 'start' is the very first function called after loading
+ */
 int
 waveout_start (void) {
-    int num_devices, idx;
+    int num_devices, idx, result = 0;
     WAVEOUTCAPS woc;
     char new_dev[40];
 
     trace("waveout_start\n");
     state = OUTPUT_STATE_STOPPED;
+    audio_blocks_sent = 0;
+    audio_block_write_index = 0;
+    audio_format_change_pending = 0;
+    waveout_shutdown = 0;
+
     num_devices = waveOutGetNumDevs();
     if (num_devices != 0)
     {
-        snprintf((char *)settings_dlg, COMBOBOX_LAYOUT_STRING_LENGTH-4,
+        snprintf((char *)settings_dlg, COMBOBOX_LAYOUT_STRING_LENGTH,
                  "property \"Audio device\" select[%d] waveout.dev 0 Default ", num_devices+1);
         for (idx=0; idx<num_devices; idx++)
         {
             if (waveOutGetDevCaps(idx, &woc, sizeof(WAVEOUTCAPS)) == MMSYSERR_NOERROR)
             {
                 snprintf(new_dev, 40, " \"%s\"", woc.szPname);
-                strncat((char *)settings_dlg, new_dev, COMBOBOX_LAYOUT_STRING_LENGTH-4);
+                strncat((char *)settings_dlg, new_dev, COMBOBOX_LAYOUT_STRING_LENGTH);
             }
             else
                 strncat((char *)settings_dlg, "\"(no description)\"", COMBOBOX_LAYOUT_STRING_LENGTH-4);
         }
         strncat((char *)settings_dlg, " ;\n", COMBOBOX_LAYOUT_STRING_LENGTH);
+        /* combo selector is ready */
+
+        /* let's allocate enough room for needed audio data */
+        audio_data = malloc(AUDIO_BUFFER_NO * AUDIO_BUFFER_SIZE);
+        if (audio_data != NULL)
+        {
+            InitializeCriticalSection(&waveoutCS);
+        }
+        else
+            /* memory allocation failed - fatal */
+            result = -1;
     }
     else
-        waveout_device = WAVE_MAPPER;
-    return 0;
+        /* no audio devices detected - communicate this failure */
+        result = -1;
+
+    return result;
 }
 
+/*
+ * 'stop' is the very last function called before closing the output plugin
+ * this is the best place for freeing resources
+ */
 int
 waveout_stop (void) {
     trace("waveout_stop\n");
+    free(audio_data);
+    DeleteCriticalSection(&waveoutCS);
     return 0;
 }
 
@@ -383,7 +501,7 @@ static DB_output_t plugin = {
     "\n"
     "1. The origin of this software must not be misrepresented; you must not\n"
     "   claim that you wrote the original software. If you use this software\n"
-    "   in a product, an acknowledgment in the product documentation would be\n"
+    "   in a product, an acknowledgement in the product documentation would be\n"
     "   appreciated but is not required.\n"
     "\n"
     "2. Altered source versions must be plainly marked as such, and must not be\n"
