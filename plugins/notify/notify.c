@@ -6,12 +6,12 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
-    
+
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-    
+
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -58,7 +58,7 @@ notify_thread (void *ctx) {
 
     reply = dbus_connection_send_with_reply_and_block (conn, msg, -1, &error);
     if (dbus_error_is_set (&error)) {
-        fprintf(stderr, "send_with_reply_and_block error: (%s)\n", error.message); 
+        fprintf(stderr, "send_with_reply_and_block error: (%s)\n", error.message);
         dbus_error_free(&error);
         dbus_message_unref (msg);
         deadbeef->thread_exit(NULL);
@@ -77,12 +77,12 @@ notify_thread (void *ctx) {
                 }
                 dbus_message_unref (reply);
             } else {
-                fprintf(stderr, "Argument is not uint32\n"); 
+                fprintf(stderr, "Argument is not uint32\n");
             }
         } else {
-            fprintf(stderr, "Reply has no arguments\n"); 
+            fprintf(stderr, "Reply has no arguments\n");
         }
-    } 
+    }
 
     dbus_message_unref (msg);
     dbus_connection_unref (conn);
@@ -178,6 +178,7 @@ static void show_notification (DB_playItem_t *track) {
     ddb_tf_context_t ctx = {
         ._size = sizeof (ddb_tf_context_t),
         .it = track,
+        .flags = DDB_TF_CONTEXT_MULTILINE | DDB_TF_CONTEXT_NO_DYNAMIC,
     };
 
     deadbeef->tf_eval (&ctx, tf_title, title, sizeof (title));
@@ -241,7 +242,7 @@ static void show_notification (DB_playItem_t *track) {
     intptr_t tid = 0;
     if ((tid=deadbeef->thread_start(notify_thread, msg)) != 0) {
         dbus_message_ref (msg);
-        deadbeef->thread_detach (tid);  
+        deadbeef->thread_detach (tid);
     }
     dbus_message_unref (msg);
     if (v_iconname) {
@@ -357,7 +358,7 @@ DB_misc_t plugin = {
     .plugin.id = "notify",
     .plugin.name = "OSD Notify",
     .plugin.descr = "Displays notifications when new track starts.\nRequires dbus and notification daemon to be running.\nNotification daemon should be provided by your desktop environment.\n",
-    .plugin.copyright = 
+    .plugin.copyright =
         "OSD Notification plugin for DeaDBeeF Player\n"
         "Copyright (C) 2009-2014 Alexey Yakovenko and contributors\n"
         "\n"

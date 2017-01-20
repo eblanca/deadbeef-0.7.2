@@ -220,7 +220,7 @@ cgme_init (DB_fileinfo_t *_info, DB_playItem_t *it) {
     _info->fmt.samplerate = samplerate;
     _info->fmt.channelmask = _info->fmt.channels == 1 ? DDB_SPEAKER_FRONT_LEFT : (DDB_SPEAKER_FRONT_LEFT | DDB_SPEAKER_FRONT_RIGHT);
     info->duration = deadbeef->pl_get_item_duration (it);
-    info->reallength = inf->length; 
+    info->reallength = inf->length;
     _info->readpos = 0;
     info->eof = 0;
     return 0;
@@ -257,7 +257,7 @@ cgme_read (DB_fileinfo_t *_info, char *bytes, int size) {
         chip_voices_changed = 0;
         gme_mute_voices (info->emu, chip_voices^0xff);
     }
-    
+
     if (playForever)
         gme_set_fade(info->emu, -1, 0);
     else
@@ -404,7 +404,7 @@ cgme_insert (ddb_playlist_t *plt, DB_playItem_t *after, const char *fname) {
                 deadbeef->pl_add_meta (it, ":GME_LOOP_LENGTH", str);
                 if (inf->length == -1 || inf->length == 0) {
                     float songlength;
-                    
+
                     if (inf->loop_length > 0 && conf_loopcount > 0) {
                         songlength = inf->intro_length / 1000.f;
                         if (songlength < 0) {
@@ -502,7 +502,7 @@ static DB_decoder_t plugin = {
     .plugin.id = "stdgme",
     .plugin.name = "Game-Music-Emu player",
     .plugin.descr = "chiptune/game music player based on GME library",
-    .plugin.copyright = 
+    .plugin.copyright =
         "Game_Music_Emu plugin for DeaDBeeF\n"
         "Copyright (C) 2009-2015 Alexey Yakovenko <waker@users.sourceforge.net>\n"
         "\n"

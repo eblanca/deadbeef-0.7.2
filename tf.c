@@ -676,7 +676,7 @@ tf_func_ext (ddb_tf_context_t *ctx, int argc, const char *arglens, const char *a
 
     int len;
     TF_EVAL_CHECK(len, ctx, args, arglens[0], out, outlen, fail_on_undef);
-    
+
     char *e = out + len;
     char *c = e - 1;
     char *p = NULL;
@@ -1712,8 +1712,8 @@ tf_eval_int (ddb_tf_context_t *ctx, const char *code, int size, char *out, int o
                 }
                 else if ((tmp_a = !strcmp (name, "isplaying")) || (tmp_b = !strcmp (name, "ispaused"))) {
                     playItem_t *playing = streamer_get_playing_track ();
-                    
-                    if (playing && 
+
+                    if (playing &&
                             (
                             (tmp_a && plug_get_output ()->state () == OUTPUT_STATE_PLAYING)
                             || (tmp_b && plug_get_output ()->state () == OUTPUT_STATE_PAUSED)
@@ -1770,8 +1770,35 @@ tf_eval_int (ddb_tf_context_t *ctx, const char *code, int size, char *out, int o
                         }
                     }
                 }
+                else if (!strcmp (name, "_path_raw")) {
+                    val = pl_find_meta_raw (it, ":URI");
+                }
                 else if (!strcmp (name, "path")) {
                     val = pl_find_meta_raw (it, ":URI");
+
+                    // strip file://
+                    if (!strncmp (val, "file://", 7)) {
+                        val += 7;
+                    }
+#if 0
+                    // strip any URI scheme
+                    if (isalpha (*val)) {
+                        const char *slash = strchr (val, ':');
+                        if (slash && strlen (slash) > 3 && slash[1] == '/' && slash[2] == '/') {
+                            const char *p = val;
+                            while (p < slash) {
+                                if (!isalpha (*p) && !isdigit (*p) && !strchr ("+.-", *p)) {
+                                    p = NULL;
+                                    break;
+                                }
+                                p++;
+                            }
+                            if (p) {
+                                val = slash + 3;
+                            }
+                        }
+                    }
+#endif
                 }
                 // index of track in playlist (zero-padded)
                 else if (!strcmp (name, "list_index")) {

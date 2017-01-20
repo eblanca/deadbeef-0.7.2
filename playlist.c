@@ -716,6 +716,7 @@ plt_move (int from, int to) {
         if (unlink(temp)!=0)
             fprintf (stderr, "deleting %s failed: %s\n", temp, strerror (errno));
 #endif
+
         int err = rename (path1, temp);
         if (err != 0) {
             fprintf (stderr, "playlist rename %s->%s failed: %s\n", path1, temp, strerror (errno));

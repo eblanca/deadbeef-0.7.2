@@ -212,7 +212,7 @@ gtkui_exec_action_14 (DB_plugin_action_t *action, int cursor) {
         if (cursor == -1) {
             cursor = deadbeef->pl_get_cursor (PL_MAIN);
         }
-        if (cursor == -1) 
+        if (cursor == -1)
         {
             return;
         }

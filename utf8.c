@@ -25,7 +25,7 @@
   Alexey Yakovenko waker@users.sourceforge.net
 */
 
-/* 
+/*
     based on Basic UTF-8 manipulation routines
     by Jeff Bezanson
     placed in the public domain Fall 2005
@@ -48,6 +48,7 @@
 #ifdef __MINGW32__
 #include <malloc.h>
 #endif
+
 static const uint32_t offsetsFromUTF8[6] = {
     0x00000000UL, 0x00003080UL, 0x000E2080UL,
     0x03C82080UL, 0xFA082080UL, 0x82082080UL

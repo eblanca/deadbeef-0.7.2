@@ -196,7 +196,7 @@ on_dsp_add_clicked                     (GtkButton       *button,
     gtk_dialog_set_default_response (GTK_DIALOG (dlg), GTK_RESPONSE_OK);
     gtk_window_set_transient_for (GTK_WINDOW (dlg), GTK_WINDOW (prefwin));
     gtk_window_set_title (GTK_WINDOW (dlg), _("Add plugin to DSP chain"));
-    
+
     GtkComboBox *combo;
     // fill encoder presets
     combo = GTK_COMBO_BOX (lookup_widget (dlg, "plugin"));

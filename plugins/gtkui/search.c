@@ -298,7 +298,7 @@ int search_get_idx (DdbListviewIter it) {
     DB_playItem_t *c = deadbeef->pl_get_first (PL_SEARCH);
     int idx = 0;
     while (c && c != it) {
-        DB_playItem_t *next = deadbeef->pl_get_next (c, PL_SEARCH); 
+        DB_playItem_t *next = deadbeef->pl_get_next (c, PL_SEARCH);
         deadbeef->pl_item_unref (c);
         c = next;
         idx++;
@@ -398,7 +398,7 @@ search_draw_column_data (DdbListview *listview, cairo_t *cr, DdbListviewIter it,
 }
 
 static void
-search_draw_group_title (DdbListview *listview, cairo_t *drawable, DdbListviewIter it, int iter, int x, int y, int width, int height) 
+search_draw_group_title (DdbListview *listview, cairo_t *drawable, DdbListviewIter it, int iter, int x, int y, int width, int height)
 {
     pl_common_draw_group_title (listview, drawable, it, PL_SEARCH, x, y, width, height);
 }

@@ -880,13 +880,16 @@ main (int argc, char *argv[]) {
     char *e = strrchr (dbinstalldir, '/');
     if (e) {
         *e = 0;
+        portable = 1;
         struct stat st;
         char checkpath[PATH_MAX];
         snprintf (checkpath, sizeof (checkpath), "%s/plugins", dbinstalldir);
-        if (!stat (checkpath, &st)) {
-            if (S_ISDIR (st.st_mode)) {
-                portable = 1;
-            }
+        if (stat (checkpath, &st) || !S_ISDIR (st.st_mode)) {
+            portable = 0;
+        }
+        snprintf (checkpath, sizeof (checkpath), "%s/deadbeef.png", dbinstalldir);
+        if (stat (checkpath, &st) || !S_ISREG (st.st_mode)) {
+            portable = 0;
         }
     }
     if (!portable) {
@@ -1220,7 +1223,7 @@ main (int argc, char *argv[]) {
     if (gui) {
         gui->start ();
     }
-    
+
     fprintf (stderr, "gui plugin has quit; waiting for mainloop thread to finish\n");
     thread_join (mainloop_tid);
 

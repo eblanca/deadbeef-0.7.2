@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([deadbeef], [0.7.2])
+AC_INIT([deadbeef], [0.7.3-alpha1])
 
 AC_CONFIG_HEADER(config.h)
 
@@ -230,7 +230,7 @@ dnl    AC_CHECK_LIB([ICE], [main], [HAVE_ICE=yes;ICE_LIBS="-lICE";AC_SUBST(ICE_L
         AC_SUBST(GTK_MAC_LIBS)
         AC_SUBST(GTK_MAC_CFLAGS)
     fi
-    
+
     ], [
     HAVE_GTK3=no
 ])

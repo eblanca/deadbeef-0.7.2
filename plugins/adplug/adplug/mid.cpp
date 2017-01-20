@@ -1,17 +1,17 @@
 /*
  * Adplug - Replayer for many OPL2/OPL3 audio file formats.
  * Copyright (C) 1999 - 2008 Simon Peter, <dn.tlp@gmx.net>, et al.
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -604,7 +604,7 @@ bool CmidPlayer::update()
                 /*  //this might all be good
                 for (i=0; i<9; i++)
                     if (chp[i][0]==c & chp[i][1]==note)
-                        
+
 midi_fm_playnote(i,note+cnote[c],my_midi_fm_vol_table[(cvols[c]*vel)/128]*2);
                 */
                 break;
@@ -784,7 +784,7 @@ midi_fm_playnote(i,note+cnote[c],my_midi_fm_vol_table[(cvols[c]*vel)/128]*2);
             if (w!=0)
                 {
                 midiprintf("\n<%d>",w);
-                f = 
+                f =
 ((float)w/(float)deltas)*((float)msqtr/(float)1000000);
                 if (doing==1) f=0; //not playing yet. don't wait yet
                 }
@@ -822,7 +822,7 @@ midi_fm_playnote(i,note+cnote[c],my_midi_fm_vol_table[(cvols[c]*vel)/128]*2);
             if (track[curtrack].on)
                 track[curtrack].iwait-=iwait;
 
-        
+
 fwait=1.0f/(((float)iwait/(float)deltas)*((float)msqtr/(float)1000000));
         }
         else
@@ -870,7 +870,7 @@ void CmidPlayer::rewind(int subsong)
     adlib_mode=ADLIB_MELODIC;
     for (i=0; i<128; i++)
         for (j=0; j<16; j++)
-            myinsbank[i][j]=midi_fm_instruments[i][j < 14 ? j : 0];
+            myinsbank[i][j]=midi_fm_instruments[i][j];
 	for (i=0; i<16; i++)
         {
         ch[i].inum=0;

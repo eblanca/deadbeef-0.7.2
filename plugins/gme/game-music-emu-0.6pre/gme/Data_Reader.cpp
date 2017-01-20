@@ -38,43 +38,43 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
 blargg_err_t Data_Reader::read( void* p, long n )
 {
 	assert( n >= 0 );
-	
+
 	if ( n < 0 )
 		return blargg_err_caller;
-	
+
 	if ( n <= 0 )
 		return blargg_ok;
-	
+
 	if ( n > remain() )
 		return blargg_err_file_eof;
-	
+
 	blargg_err_t err = read_v( p, n );
 	if ( !err )
 		remain_ -= n;
-	
+
 	return err;
 }
 
 blargg_err_t Data_Reader::read_avail( void* p, int* n_ )
 {
 	assert( *n_ >= 0 );
-	
+
     long n = (long)(BOOST::uint64_t) min( (BOOST::uint64_t)(*n_), remain() );
 	*n_ = 0;
-	
+
 	if ( n < 0 )
 		return blargg_err_caller;
-	
+
 	if ( n <= 0 )
 		return blargg_ok;
-	
+
 	blargg_err_t err = read_v( p, n );
 	if ( !err )
 	{
 		remain_ -= n;
 		*n_ = (int) n;
 	}
-	
+
 	return err;
 }
 
@@ -101,20 +101,20 @@ blargg_err_t Data_Reader::skip_v( BOOST::uint64_t count )
 blargg_err_t Data_Reader::skip( long n )
 {
 	assert( n >= 0 );
-	
+
 	if ( n < 0 )
 		return blargg_err_caller;
-	
+
 	if ( n <= 0 )
 		return blargg_ok;
-	
+
 	if ( n > remain() )
 		return blargg_err_file_eof;
-	
+
 	blargg_err_t err = skip_v( n );
 	if ( !err )
 		remain_ -= n;
-	
+
 	return err;
 }
 
@@ -124,17 +124,17 @@ blargg_err_t Data_Reader::skip( long n )
 blargg_err_t File_Reader::seek( BOOST::uint64_t n )
 {
 	assert( n >= 0 );
-	
+
 	if ( n == tell() )
 		return blargg_ok;
-	
+
 	if ( n > size() )
 		return blargg_err_file_eof;
-	
+
 	blargg_err_t err = seek_v( n );
 	if ( !err )
 		set_tell( n );
-	
+
 	return err;
 }
 
@@ -165,7 +165,7 @@ Remaining_Reader::Remaining_Reader( void const* h, int size, Data_Reader* r ) :
 {
 	header        = h;
 	header_remain = size;
-	
+
 	set_remain( size + r->remain() );
 }
 
@@ -178,7 +178,7 @@ blargg_err_t Remaining_Reader::read_v( void* out, long count )
 		header = STATIC_CAST(char const*, header) + first;
 		header_remain -= first;
 	}
-	
+
 	return in->read( STATIC_CAST(char*, out) + first, count - first );
 }
 
@@ -249,7 +249,7 @@ static FILE* blargg_fopen( const char path [], const char mode [] )
 	FILE* file = NULL;
 	wchar_t* wmode = NULL;
 	wchar_t* wpath = NULL;
-	
+
 	wpath = blargg_to_wide( path );
 	if ( wpath )
 	{
@@ -257,13 +257,13 @@ static FILE* blargg_fopen( const char path [], const char mode [] )
 		if ( wmode )
 			file = _wfopen( wpath, wmode );
 	}
-	
+
 	// Save and restore errno in case free() clears it
 	int saved_errno = errno;
 	free( wmode );
 	free( wpath );
 	errno = saved_errno;
-	
+
 	return file;
 }
 
@@ -305,7 +305,7 @@ static blargg_err_t blargg_fopen( FILE** out, const char path [] )
 		#endif
 		return blargg_err_file_read;
 	}
-	
+
 	return blargg_ok;
 }
 
@@ -313,24 +313,24 @@ static blargg_err_t blargg_fsize( FILE* f, long* out )
 {
 	if ( fseek( f, 0, SEEK_END ) )
 		return blargg_err_file_io;
-	
+
 	*out = ftell( f );
 	if ( *out < 0 )
 		return blargg_err_file_io;
-	
+
 	if ( fseek( f, 0, SEEK_SET ) )
 		return blargg_err_file_io;
-	
+
 	return blargg_ok;
 }
 
 blargg_err_t Std_File_Reader::open( const char path [] )
 {
 	close();
-	
+
 	FILE* f;
 	RETURN_ERR( blargg_fopen( &f, path ) );
-	
+
 	long s;
 	blargg_err_t err = blargg_fsize( f, &s );
 	if ( err )
@@ -338,10 +338,10 @@ blargg_err_t Std_File_Reader::open( const char path [] )
 		fclose( f );
 		return err;
 	}
-	
+
 	file_ = f;
 	set_size( s );
-	
+
 	return blargg_ok;
 }
 
@@ -359,10 +359,10 @@ blargg_err_t Std_File_Reader::read_v( void* p, long s )
 	{
 		// Data_Reader's wrapper should prevent EOF
 		check( !feof( STATIC_CAST(FILE*, file_) ) );
-		
+
 		return blargg_err_file_io;
 	}
-	
+
 	return blargg_ok;
 }
 
@@ -372,10 +372,10 @@ blargg_err_t Std_File_Reader::seek_v( BOOST::uint64_t n )
 	{
 		// Data_Reader's wrapper should prevent EOF
 		check( !feof( STATIC_CAST(FILE*, file_) ) );
-		
+
 		return blargg_err_file_io;
 	}
-	
+
 	return blargg_ok;
 }
 
@@ -402,17 +402,17 @@ static const char* get_gzip_eof( const char path [], long* eof )
 
 	int const h_size = 4;
 	unsigned char h [h_size];
-	
+
 	// read four bytes to ensure that we can seek to -4 later
 	if ( fread( h, 1, h_size, file ) != (size_t) h_size || h[0] != 0x1F || h[1] != 0x8B )
 	{
 		// Not gzipped
 		if ( ferror( file ) )
 			return blargg_err_file_io;
-		
+
 		if ( fseek( file, 0, SEEK_END ) )
 			return blargg_err_file_io;
-		
+
 		*eof = ftell( file );
 		if ( *eof < 0 )
 			return blargg_err_file_io;
@@ -422,16 +422,16 @@ static const char* get_gzip_eof( const char path [], long* eof )
 		// Gzipped; get uncompressed size from end
 		if ( fseek( file, -h_size, SEEK_END ) )
 			return blargg_err_file_io;
-		
+
 		if ( fread( h, 1, h_size, file ) != (size_t) h_size )
 			return blargg_err_file_io;
-		
+
 		*eof = get_le32( h );
 	}
-	
+
 	if ( fclose( file ) )
 		check( false );
-	
+
 	return blargg_ok;
 }
 
@@ -448,14 +448,14 @@ Gzip_File_Reader::~Gzip_File_Reader()
 blargg_err_t Gzip_File_Reader::open( const char path [] )
 {
 	close();
-	
+
 	long s;
 	RETURN_ERR( get_gzip_eof( path, &s ) );
 
 	file_ = gzopen( path, "rb" );
 	if ( !file_ )
 		return blargg_err_file_read;
-	
+
 	set_size( s );
 	return blargg_ok;
 }
@@ -464,7 +464,7 @@ static blargg_err_t convert_gz_error( gzFile file )
 {
 	int err;
 	gzerror( file, &err );
-	
+
 	switch ( err )
 	{
 	case Z_STREAM_ERROR:    break;
@@ -482,10 +482,10 @@ blargg_err_t Gzip_File_Reader::read_v( void* p, long s )
 	{
 		if ( result < 0 )
 			return convert_gz_error( file_ );
-		
+
 		return blargg_err_file_corrupt;
 	}
-	
+
 	return blargg_ok;
 }
 
