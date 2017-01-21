@@ -68,27 +68,26 @@ MinGW section
 (please note, this whole source code tree is still a work in progress - no warranty provided)
 
 The needed libraries above will build and install almost out-of-the-box.
-For jansson, download the latest git master branch, because I committed a fix for mingw environment which allows the full test suite to complete.
+For jansson, download some recent version (>=2.8), because I committed a fix for mingw environment which allows the full test suite to complete.
 
-With recent versions of pthreads-win32 (installed with msys1/mingw) you'll have to comment out the declaration of timespec struct type (into pthread.h), since it is already declared in parts/time.h and this will raise a compilation error.
+With recent versions of pthreads-win32 (installed with msys1/mingw) you'll have to comment out the declaration of timespec struct type (into pthread.h), since it is already declared in parts/time.h and this will raise a compilation error. (seems this is not needed anymore...)
 
 You'll get a ready-to-go binary zip file with GTK+2.24.10 on www.gtk.org, it contains also every single dependency library needed for deadbeef (gdk, glib, gthread, pango, cairo, atk and so on).
 Well, if you prefer GTK+3 or any other gtk release, feel free to try. Version 2 is what I used, since it is easy to go with.
 
 At the time of writing, I am quite confident a minimal deadbeef binary can be built with:
 
-./configure --disable-gtk3 --disable-vtx --disable-gme --disable-sid --disable-adplug --disable-wildmidi --disable-tta --disable-mms --disable-psf --disable-dumb --disable-shn --disable-sc68 --disable-dca --disable-shellexec --disable-ffap --disable-alac --disable-wma --disable-nls --disable-converter
+./configure --disable-gtk3 --disable-vtx --disable-gme --disable-sid --disable-adplug --disable-wildmidi --disable-tta --disable-psf --disable-dumb --disable-shn --disable-sc68 --disable-shellexec --disable-ffap --disable-alac --disable-nls --disable-converter
 
-It will support mp3 (if you install mad and/or mpg123), vorbis (if you install libogg and libvorbis) and musepack (it is shipped with deadbeef) decoding. (maybe something else, disable what's unwanted)
-Unfortunately, no audio output yet.
-The default null output plugin will be built, and so all that you'll get is a nice deadbeef window featuring audio decoding - no more, no less.
-It is still a good starting point, though.
-A WaveOut output plugin is on the way, and the included source (into plugins/waveout/) will currently do nothing. Nevertheless, you can build it (no, it won't be built by make, you have to build it on your own), install it, open preference window and see deadbeef choose between two output plugins - nice!
+It will support mpeg1/2 (if you install libmad and/or mpg123), aac (if you install faad2), vorbis (if you install libogg and libvorbis), musepack (it is shipped with deadbeef), flac (if you install flac), wavpack (if you install wavpack), sndfile (if you install libsndfile) and wma decoding and resampling (if you install libsamplerate aka SecretRabbitCode). (maybe something else, disable what's unwanted)
+
+The default null output plugin will be built, and I added a nice feature simulating the audio output delay. Quite useful, sometimes - it still needs a fix though.
+The WaveOut output plugin version 1.0 is now ready, and it can play sounds through any audio device your OS currently supports. The deadbeef preference window lets you choose among the devices detected by the plugin.
 
 After the usual 'make' the main executable should be built (linking against wsock32 is needed).
 Note: chances are that recent mingw compiler (gcc) creates an executable which needs an extra lib, called libgcc_s_dw2-1.dll.
 Now, want a static deadbeef executable (I do) ? Then add the '-static' option to the compiler command line.
-Have static and shared versions of pthreads libraries (I do) ? The default behaviour is to build against the shared version (dll) but you'll have to ship the library together with your executable. If this is not what you want, then add the '-DPTW32_STATIC_LIB' definition to the preprocessor flags and you will get deadbeef.exe with no pthread dependency.
+Have static and shared versions of pthreads libraries (I do) ? The default behaviour is to build against the shared version (dll) but you'll have to ship the library together with your executable. If this is not what you want, then add the '-D_PTW32_STATIC_LIB' definition to the preprocessor flags and you will get deadbeef.exe with no pthread dependency.
 
 Now, 'make install' will install the package and you will be able to run deadbeef but - nothing else will happen.
 Why?
@@ -103,8 +102,7 @@ where somethingplugin.dll is the name of the output dll. Replace that *.o with t
 Naming:  IT IS MANDATORY the dll has to be named as the plugin it contains! If different, deadbeef won't find the entry point for the functions it searches it in.
 The only exception is for gui plugins, they are named accordingly to the rules reported here https://github.com/Alexey-Yakovenko/deadbeef/wiki/Developing-your-own-plugin . Anyway, if in doubt, name the plugin exactly as its linux counterpart, just with .dll extension.
 
-Copy the dll file where deadbeef will find it (just read the directories it searches at startup) and the whole game will play nicely.
-(I will fix those directories, but this is far in my TODO list)
+Copy the dll file into the plugins/ directory and the whole game will play nicely.
 
 Have fun.
 
