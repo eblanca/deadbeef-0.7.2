@@ -143,8 +143,21 @@ thread_detach (db_thread_t tid) {
 }
 
 int
-thread_exist (db_thread_t tid) {
+thread_alive (db_thread_t tid) {
     return (pthread_kill (tid, 0) == 0);
+}
+
+void
+thread_wipeid (db_thread_t *tid) {
+    if (tid != NULL)
+    {
+#ifdef __MINGW32__
+        tid->p = NULL;
+        tid->x = 0;
+#else
+        *tid = 0;
+#endif
+    }
 }
 
 void

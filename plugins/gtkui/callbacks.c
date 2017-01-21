@@ -25,6 +25,9 @@
 #  include <config.h>
 #endif
 
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#endif
 #include <gtk/gtk.h>
 #include <math.h>
 #include <stdlib.h>

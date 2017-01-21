@@ -20,6 +20,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#endif
 #include "../../deadbeef.h"
 #include "src.h"
 

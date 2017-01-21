@@ -31,15 +31,16 @@
 
 #define AUDIO_BUFFER_NO                                    10  /* max number of audio blocks */
 /* block buffers have to be large enough to maintain at least 20 ms of music (maybe 25?), else stuttering may be heard */
-#define AUDIO_BUFFER_SIZE          (AUDIO_BUFFER_NO*120*1024)  /* max size reserved for audio buffers - rarely used */
+#define AUDIO_BUFFER_SIZE          (AUDIO_BUFFER_NO*150*1024)  /* max size reserved for audio buffers - rarely used */
 /* 20 ms of a 192 KHz 7.1 (32 bit/sample) stream require 120 kB */
 /* 25 ms of the same audio stream require 150 kB */
 /* cannot rely on time measures below 10 ms because we are really close to the NT time granularity (1/64 s),
    so even the sound card driver may behave oddly */
-#define AUDIO_BUFFER_DURATION                              20  /* ms of audio data per block */
+#define AUDIO_BUFFER_DURATION                              25  /* ms of audio data per block */
 
-#define COMBOBOX_LAYOUT_STRING_LENGTH                    1024
-#define COMBOBOX_LAYOUT_ENTRY_LEN             (MAXPNAMELEN+4)   /* need further room for quotes */
+#define CHARACTER_SPACE                                   ' '
+#define CHARACTER_UNDERSCORE                              '_'
+
 
 #include <unistd.h>
 
@@ -57,11 +58,13 @@ static const GUID  KSDATAFORMAT_SUBTYPE_IEEE_FLOAT = {0x00000003,0x0000,0x0010,{
 static DB_output_t plugin;
 DB_functions_t *deadbeef;
 
+/* waveOut device number and description */
 static unsigned int waveout_device;
+static char setup_dev[MAXPNAMELEN]="default";
+
 static db_thread_t waveout_tid;
 static int wave_terminate, state;
 static int audio_blocks_sent, audio_block_write_index;
-static const char settings_dlg[COMBOBOX_LAYOUT_STRING_LENGTH];
 static int bytesread, bytes_per_block, avail_audio_buffers;
 static WAVEFORMATEXTENSIBLE wave_format;
 static HWAVEOUT device_handle;
@@ -69,7 +72,7 @@ static WAVEHDR waveout_headers[AUDIO_BUFFER_NO];
 static CRITICAL_SECTION waveoutCS;
 static void *audio_data;
 
-char audio_format_change_pending, output_device_change_pending;
+char audio_format_change_pending;
 
 
 static void
@@ -77,6 +80,21 @@ pwaveout_thread (void *context);
 
 int
 pwaveout_stop (void);
+
+static void
+remove_blanks (char *buffer, int len)
+{
+    int idx;
+
+    if (buffer != NULL && len > 0)
+    {
+        for (idx=0; idx<len; idx++)
+        {
+            if (buffer[idx] == CHARACTER_SPACE)
+                buffer[idx] = CHARACTER_UNDERSCORE;
+        }
+    }
+}
 
 int
 pwaveout_init (void)
@@ -91,24 +109,62 @@ pwaveout_init (void)
 static int
 waveout_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2)
 {
+    int num_devices, idx;
+    WAVEOUTCAPS woc;
+    char my_dev[MAXPNAMELEN];
+    const char *current_dev;
     unsigned int new_wdevice;
 
     switch (id) {
         case DB_EV_CONFIGCHANGED:
-        new_wdevice = deadbeef->conf_get_int("waveout.dev", 0) - 1;
-        trace("waveout_message: selected device code is %d\n",new_wdevice);
+        new_wdevice = waveout_device;
+        current_dev = deadbeef->conf_get_str_fast ("alsa_soundcard", "default");
+
+        if (strcmp(current_dev, "default") == 0)
+        {
+            trace("waveout_message: default device WAVE_MAPPER\n");
+            new_wdevice = WAVE_MAPPER;
+        }
+        else
+        {
+            num_devices = waveOutGetNumDevs();
+            if (num_devices != 0)
+            {
+                for (idx=0; idx<num_devices; idx++)
+                {
+                    if (waveOutGetDevCaps(idx, &woc, sizeof(WAVEOUTCAPS)) == MMSYSERR_NOERROR)
+                    {
+                        memcpy(my_dev, woc.szPname, MAXPNAMELEN);
+                        remove_blanks(my_dev, MAXPNAMELEN);
+                        if (strcmp(my_dev, current_dev) == 0)
+                        {
+                            trace("waveout_message: device match %s\n",my_dev);
+                            memcpy(setup_dev, my_dev, MAXPNAMELEN);
+                            new_wdevice = idx;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
 
         /* new device? */
         if (waveout_device != new_wdevice)
         {
             /* replace wave device */
             waveout_device = new_wdevice;
-            /* flag for the 'pwaveout_stop' routine */
-            output_device_change_pending = 1;
-            /* stop playback (if any) */
-            deadbeef->sendmessage (DB_EV_STOP, 0, 0, 0);
+            /* re-init output plugin */
+            trace ("waveout_message: config option changed, restarting\n");
+            deadbeef->sendmessage (DB_EV_REINIT_SOUND, 0, 0, 0);
         }
         break;
+#if 0
+        case DB_EV_SONGSTARTED:
+        if (/* notification balloon requested */)
+        {
+        }
+        break;
+#endif
     }
     return 0;
 }
@@ -183,7 +239,9 @@ pwaveout_setformat (ddb_waveformat_t *fmt)
             result = -1;
         }
         else
+        {
             trace("pwaveout_setformat: new format supported\n");
+        }
     }
     else
     {
@@ -200,7 +258,7 @@ pwaveout_free (void)
     trace("pwaveout_free\n");
     if (!wave_terminate)
     {
-        if (deadbeef->thread_exist(waveout_tid))
+        if (deadbeef->thread_alive(waveout_tid))
         {
             wave_terminate = 1;
             trace("pwaveout_free: waiting for thread join...\n");
@@ -219,7 +277,7 @@ void CALLBACK waveOutProc(HWAVEOUT  hwo,
                           DWORD_PTR dwParam1,
                           DWORD_PTR dwParam2)
 {
-    if (uMsg == WOM_DONE)
+    if (hwo == device_handle && uMsg == WOM_DONE)
     {
         EnterCriticalSection(&waveoutCS);
         audio_blocks_sent--;
@@ -236,16 +294,18 @@ pwaveout_play (void)
     int result = -1;
 
     trace("pwaveout_play\n");
-    if (!deadbeef->thread_exist(waveout_tid))
+    if (!deadbeef->thread_alive(waveout_tid))
     {
         waveout_tid = deadbeef->thread_start(pwaveout_thread, NULL);
     }
-    if (deadbeef->thread_exist(waveout_tid))
+    if (deadbeef->thread_alive(waveout_tid))
     {
         if (wave_format.Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE)
         {
             if (audio_blocks_sent)
-                trace("pwaveout_play: audio_blocks_sent=%d\n",audio_blocks_sent);
+            {
+                trace("pwaveout_play: DANGEROUS audio_blocks_sent=%d\n",audio_blocks_sent);
+            }
             /* device setup is ok, let's open */
             if (waveOutOpen(&device_handle, waveout_device, (WAVEFORMATEX *)&wave_format, (DWORD_PTR)waveOutProc, 0, CALLBACK_FUNCTION) == MMSYSERR_NOERROR)
             {
@@ -277,7 +337,11 @@ pwaveout_stop (void)
             /* cannot close a paused device */
             waveOutRestart(device_handle);
 
+        /* inhibit pwaveout_thread from sending more audio blocks to the device */
+        state = OUTPUT_STATE_STOPPED;
         waveOutReset(device_handle);
+        /* ensure pwaveout_thread catches the new state */
+        __mingw_sleep(0, AUDIO_BUFFER_DURATION*1000000);
 
         if (audio_blocks_sent)
         {
@@ -302,23 +366,6 @@ pwaveout_stop (void)
     state = OUTPUT_STATE_STOPPED;
 
     deadbeef->streamer_reset(1);
-
-    if (output_device_change_pending)
-    {
-        /* a different WaveOut device was selected */
-        trace("pwaveout_stop: changing waveout device\n");
-
-        /* close the current device */
-        if (device_handle != NULL)
-        {
-            waveOutClose(device_handle);
-            device_handle = NULL;
-        }
-        /* force setting output format on new device */
-        audio_format_change_pending = 1;
-
-        output_device_change_pending = 0;
-    }
 
     return 0;
 }
@@ -350,17 +397,6 @@ pwaveout_unpause (void)
         state = OUTPUT_STATE_PLAYING;
     }
     return 0;
-}
-
-static int
-pwaveout_get_endianness (void)
-{
-    trace("pwaveout_get_endianness\n");
-#if WORDS_BIGENDIAN
-    return 1;
-#else
-    return 0;
-#endif
 }
 
 
@@ -449,6 +485,9 @@ pwaveout_thread (void *context)
             }
         }
     }
+
+    /* closing operations */
+
     if (device_handle != NULL)
     {
         /* stop playback */
@@ -484,38 +523,18 @@ pwaveout_get_state (void) {
  */
 int
 waveout_start (void) {
-    int num_devices, idx, result = 0;
-    WAVEOUTCAPS woc;
-    char new_dev[COMBOBOX_LAYOUT_ENTRY_LEN];
+    int result = 0;
 
     trace("waveout_start\n");
     state = OUTPUT_STATE_STOPPED;
     audio_blocks_sent = 0;
     audio_format_change_pending = 0;
-    output_device_change_pending = 0;
     device_handle = NULL;
     waveout_device = WAVE_MAPPER;
     waveout_tid.p = NULL; waveout_tid.x = 0;
 
-    num_devices = waveOutGetNumDevs();
-    if (num_devices != 0)
+    if (waveOutGetNumDevs() != 0)
     {
-        snprintf((char *)settings_dlg, COMBOBOX_LAYOUT_STRING_LENGTH,
-                 "property \"Audio device\" select[%d] waveout.dev 0 Default", num_devices+1);
-        for (idx=0; idx<num_devices; idx++)
-        {
-            if (waveOutGetDevCaps(idx, &woc, sizeof(WAVEOUTCAPS)) == MMSYSERR_NOERROR)
-            {
-                snprintf(new_dev, COMBOBOX_LAYOUT_ENTRY_LEN, " \"%s\"", woc.szPname);
-                strncat((char *)settings_dlg, new_dev, COMBOBOX_LAYOUT_STRING_LENGTH-4);
-            }
-            else
-                strncat((char *)settings_dlg, " \"(no description)\"", COMBOBOX_LAYOUT_STRING_LENGTH-4);
-        }
-        strncat((char *)settings_dlg, " ;\n", COMBOBOX_LAYOUT_STRING_LENGTH);
-        /* combo selector is ready */
-        //trace("%s",settings_dlg);
-
         /* let's allocate enough room for needed audio data */
         audio_data = malloc(AUDIO_BUFFER_SIZE);
         if (audio_data != NULL)
@@ -533,6 +552,40 @@ waveout_start (void) {
 
     return result;
 }
+
+
+static void
+pwaveout_enumdevices (void (*callback)(const char *name, const char *desc, void *), void *userdata)
+{
+    int idx, num_devices;
+    WAVEOUTCAPS woc;
+    char desc[MAXPNAMELEN];
+
+    num_devices = waveOutGetNumDevs();
+    if (num_devices != 0)
+    {
+        /* there is at least an audio output device */
+        for (idx=0; idx<num_devices; idx++)
+        {
+            if (waveOutGetDevCaps(idx, &woc, sizeof(WAVEOUTCAPS)) == MMSYSERR_NOERROR)
+            {
+                memcpy(desc, woc.szPname, MAXPNAMELEN);
+
+                /* clean the name in order to save it into config file */
+                remove_blanks(desc, MAXPNAMELEN);
+
+                callback (desc, woc.szPname, userdata);
+                trace("pwaveout_enumdevices: '%s %s'\n", desc, woc.szPname);
+            }
+            else
+            {
+                callback ("(no_description)", "(no description)", userdata);
+                trace("pwaveout_enumdevices: '(no_description) (no description)'\n");
+            }
+        }
+    }
+}
+
 
 /*
  * 'stop' is the very last function called before closing the output plugin
@@ -556,14 +609,14 @@ waveout_load (DB_functions_t *api) {
 
 // define plugin interface
 static DB_output_t plugin = {
+    .plugin.type = DB_PLUGIN_OUTPUT,
     .plugin.api_vmajor = 1,
     .plugin.api_vminor = 9,
-    .plugin.version_major = 0,
-    .plugin.version_minor = 1,
-    .plugin.type = DB_PLUGIN_OUTPUT,
+    .plugin.version_major = 1,
+    .plugin.version_minor = 0,
     .plugin.id = "waveout",
     .plugin.name = "WaveOut output plugin",
-    .plugin.descr = "Output plugin for the WaveOut interface on Windows(R) OSs.\nRequires Windows XP at least.",
+    .plugin.descr = "Output plugin for the WaveOut interface\non Windows(R) OSs.\nRequires Windows XP at least.",
     .plugin.copyright = 
     "WaveOut output plugin for DeaDBeeF Player\n"
     "Copyright (C) 2016-2017 Elio Blanca\n"
@@ -584,13 +637,17 @@ static DB_output_t plugin = {
     "2. Altered source versions must be plainly marked as such, and must not be\n"
     "   misrepresented as being the original software.\n"
     "\n"
-    "3. This notice may not be removed or altered from any source distribution.\n"
-    ,
+    "3. This notice may not be removed or altered from any source distribution.\n",
     .plugin.website = "https://github.com/eblanca/deadbeef-0.7.2",
+    .plugin.command = NULL,
     .plugin.start = waveout_start,
     .plugin.stop = waveout_stop,
-    .plugin.configdialog = settings_dlg,
+    .plugin.connect = NULL,
+    .plugin.disconnect = NULL,
+    .plugin.exec_cmdline = NULL,
+    .plugin.get_actions = NULL,
     .plugin.message = waveout_message,
+    .plugin.configdialog = NULL,
     .init = pwaveout_init,
     .free = pwaveout_free,
     .setformat = pwaveout_setformat,
@@ -599,7 +656,10 @@ static DB_output_t plugin = {
     .pause = pwaveout_pause,
     .unpause = pwaveout_unpause,
     .state = pwaveout_get_state,
-    .fmt = {.samplerate = 44100, .channels = 2, .bps = 16, .channelmask = DDB_SPEAKER_FRONT_LEFT | DDB_SPEAKER_FRONT_RIGHT}
+    .enum_soundcards = pwaveout_enumdevices,
+    .fmt = {.samplerate = 44100, .channels = 2, .bps = 16, .channelmask = DDB_SPEAKER_FRONT_LEFT | DDB_SPEAKER_FRONT_RIGHT},
+    /* waveOut API has the waveOutGetVolume and waveOutSetVolume interfaces: fix this? */
+    .has_volume = 0
 };
 #endif /* __MINGW32__ */
 

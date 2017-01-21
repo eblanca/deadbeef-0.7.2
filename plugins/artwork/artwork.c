@@ -27,12 +27,22 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <ctype.h>
 #include <libgen.h>
 #include <dirent.h>
 #include <unistd.h>
+#ifndef __MINGW32__
 #include <fnmatch.h>
+#else
+#define NAME_MAX FILENAME_MAX
+#define WINSHLWAPI
+#include <shlwapi.h>
+#endif
 #include <pthread.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -60,6 +70,9 @@
 #include "wos.h"
 #include "cache.h"
 #include "artwork.h"
+#ifdef __MINGW32__
+#include "../../mingw32_layer.h"
+#endif
 
 //#define trace(...) { fprintf (stderr, __VA_ARGS__); }
 #define trace(...)
@@ -88,9 +101,9 @@ typedef struct cover_query_s {
 static cover_query_t *queue;
 static cover_query_t *queue_tail;
 static int terminate;
-static intptr_t tid;
-static uintptr_t queue_mutex;
-static uintptr_t queue_cond;
+static db_thread_t tid;
+static db_mutex_t queue_mutex;
+static db_cond_t queue_cond;
 
 static int artwork_enable_embedded;
 static int artwork_enable_local;
@@ -1124,12 +1137,16 @@ static char *filter_custom_mask = NULL;
 static int
 filter_custom (const struct dirent *f)
 {
+#ifdef __MINGW32__
+    return ((PathMatchSpec(f->d_name, filter_custom_mask)==TRUE)? 0 : 1);
+#else
 // FNM_CASEFOLD is not defined on solaris. On other platforms it is.
 // It should be safe to define it as FNM_INGORECASE if it isn't defined.
 #ifndef FNM_CASEFOLD
 #define FNM_CASEFOLD FNM_IGNORECASE
 #endif
     return !fnmatch (filter_custom_mask, f->d_name, FNM_CASEFOLD);
+#endif
 }
 
 static char *
@@ -2075,7 +2092,7 @@ artwork_get_actions (DB_playItem_t *it)
 static int
 artwork_plugin_stop (void)
 {
-    if (deadbeef->thread_exist (tid)) {
+    if (deadbeef->thread_alive (tid)) {
         trace ("Stopping fetcher thread ... \n");
         deadbeef->mutex_lock (queue_mutex);
         queue_clear ();
@@ -2089,9 +2106,7 @@ artwork_plugin_stop (void)
         }
         deadbeef->mutex_unlock (queue_mutex);
         deadbeef->thread_join (tid);
-#ifndef __MINGW32__
-        tid = 0;
-#endif
+        deadbeef->thread_wipeid (&tid);
         trace ("Fetcher thread stopped\n");
     }
     if (queue_mutex) {
@@ -2133,7 +2148,7 @@ artwork_plugin_start (void)
     if (queue_mutex && queue_cond) {
         tid = deadbeef->thread_start_low_priority (fetcher_thread, NULL);
     }
-    if (!deadbeef->thread_exist (tid)) {
+    if (deadbeef->thread_alive (tid)) {
         artwork_plugin_stop ();
         return -1;
     }

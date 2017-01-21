@@ -793,7 +793,7 @@ http_close (DB_FILE *stream) {
     HTTP_FILE *fp = (HTTP_FILE *)stream;
 
     http_abort (stream);
-    if (deadbeef->thread_exist (fp->tid)) {
+    if (deadbeef->thread_alive (fp->tid)) {
         deadbeef->thread_join (fp->tid);
     }
     http_cancel_abort ((DB_FILE *)fp);
@@ -813,7 +813,7 @@ http_read (void *ptr, size_t size, size_t nmemb, DB_FILE *stream) {
         errno = ECONNABORTED;
         return 0;
     }
-    if (!deadbeef->thread_exist (fp->tid)) {
+    if (!deadbeef->thread_alive (fp->tid)) {
         http_start_streamer (fp);
     }
 
@@ -899,7 +899,7 @@ http_seek (DB_FILE *stream, int64_t offset, int whence) {
         trace ("vfs_curl: can't seek in curl stream relative to EOF\n");
         return -1;
     }
-    if (!deadbeef->thread_exist (fp->tid)) {
+    if (!deadbeef->thread_alive (fp->tid)) {
         if (offset == 0 && (whence == SEEK_SET || whence == SEEK_CUR)) {
             return 0;
         }
@@ -956,7 +956,7 @@ http_rewind (DB_FILE *stream) {
     trace ("http_rewind\n");
     assert (stream);
     HTTP_FILE *fp = (HTTP_FILE *)stream;
-    if (deadbeef->thread_exist (fp->tid)) {
+    if (deadbeef->thread_alive (fp->tid)) {
         deadbeef->mutex_lock (fp->mutex);
         fp->status = STATUS_SEEK;
         http_stream_reset (fp);
@@ -974,7 +974,7 @@ http_getlength (DB_FILE *stream) {
         trace ("length: -1\n");
         return -1;
     }
-    if (!deadbeef->thread_exist (fp->tid)) {
+    if (!deadbeef->thread_alive (fp->tid)) {
         http_start_streamer (fp);
     }
     while (fp->status == STATUS_INITIAL) {
@@ -995,7 +995,7 @@ http_get_content_type (DB_FILE *stream) {
     if (fp->gotheader) {
         return fp->content_type;
     }
-    if (!deadbeef->thread_exist (fp->tid)) {
+    if (!deadbeef->thread_alive (fp->tid)) {
         http_start_streamer (fp);
     }
     trace ("http_get_content_type waiting for response...\n");

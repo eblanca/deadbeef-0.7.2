@@ -658,13 +658,13 @@ insert_disc (ddb_playlist_t *plt, DB_playItem_t *after, const char *path, const 
         if (!(got_cdtext && prefer_cdtext) && enable_cddb) {
             trace("cdda: querying freedb...\n");
             tid = deadbeef->thread_start(cddb_thread, p);
-            if (deadbeef->thread_exist (tid)) {
+            if (deadbeef->thread_alive (tid)) {
                 deadbeef->thread_detach(tid);
             }
         }
     }
 
-    if (!deadbeef->thread_exist (tid)) {
+    if (!deadbeef->thread_alive (tid)) {
         cleanup_thread_params(p);
     }
 

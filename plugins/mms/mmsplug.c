@@ -21,14 +21,14 @@
     3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "../../deadbeef.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
 #ifdef __MINGW32__
 #undef __STRICT_ANSI__
 #undef _NO_OLDNAMES
 #endif
+#include "../../deadbeef.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 #include <libmms/mmsx.h>
 

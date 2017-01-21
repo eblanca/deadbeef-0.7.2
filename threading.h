@@ -52,7 +52,10 @@ int
 thread_detach (db_thread_t/*intptr_t*/ tid);
 
 int
-thread_exist (db_thread_t/*intptr_t*/ tid);
+thread_alive (db_thread_t/*intptr_t*/ tid);
+
+void
+thread_wipeid (db_thread_t *tid);
 
 void
 thread_exit (void *retval);

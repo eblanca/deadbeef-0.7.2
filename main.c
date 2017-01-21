@@ -788,12 +788,10 @@ plug_get_gui (void) {
 void
 main_cleanup_and_quit (void) {
     // terminate server and wait for completion
-    if (thread_exist (server_tid)) {
+    if (thread_alive (server_tid)) {
         server_terminate = 1;
         thread_join (server_tid);
-#ifndef __MINGW32__
-        server_tid = 0;
-#endif
+        thread_wipeid (&server_tid);
     }
 
     // save config
@@ -1005,7 +1003,12 @@ main (int argc, char *argv[]) {
         mkdir (dbplugindir, 0755);
     }
     else {
+#ifdef __MINGW32__
+        GetCurrentDirectory(MAX_PATH, current_dir);
+        if (snprintf (dbdocdir, sizeof (dbdocdir), "%s/doc", current_dir) > sizeof (dbdocdir)) {
+#else
         if (snprintf (dbdocdir, sizeof (dbdocdir), "%s", DOCDIR) > sizeof (dbdocdir)) {
+#endif
             fprintf (stderr, "fatal: too long install path %s\n", dbinstalldir);
             return -1;
         }
@@ -1018,10 +1021,7 @@ main (int argc, char *argv[]) {
             }
         }
 #ifdef __MINGW32__
-        else
-        {
-            GetCurrentDirectory(MAX_PATH, current_dir);
-            if (snprintf (dbplugindir, sizeof (dbplugindir), "%s/plugins", current_dir) > sizeof (dbplugindir)) {
+        else if (snprintf (dbplugindir, sizeof (dbplugindir), "%s/plugins", current_dir) > sizeof (dbplugindir)) {
 #else
         else if (snprintf (dbplugindir, sizeof (dbplugindir), "%s/deadbeef", LIBDIR) > sizeof (dbplugindir)) {
 #endif
@@ -1029,7 +1029,6 @@ main (int argc, char *argv[]) {
             return -1;
         }
 #ifdef __MINGW32__
-        }
         if (snprintf (dbpixmapdir, sizeof (dbpixmapdir), "%s/pixmaps", current_dir) > sizeof (dbpixmapdir)) {
 #else
         if (snprintf (dbpixmapdir, sizeof (dbpixmapdir), "%s/share/deadbeef/pixmaps", PREFIX) > sizeof (dbpixmapdir)) {

@@ -668,16 +668,14 @@ void
 cover_art_free (void) {
     trace ("coverart: terminating cover art loader...\n");
 
-    if (deadbeef->thread_exist (tid)) {
+    if (deadbeef->thread_alive (tid)) {
         deadbeef->mutex_lock(mutex);
         terminate = 1;
         trace("coverart: sending terminate signal to art loader thread...\n");
         deadbeef->cond_signal(cond);
         deadbeef->mutex_unlock(mutex);
         deadbeef->thread_join(tid);
-#ifndef __MINGW32__
-        tid = 0;
-#endif
+        deadbeef->thread_wipeid (&tid);
     }
 
     while (queue) {

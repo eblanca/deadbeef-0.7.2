@@ -100,13 +100,11 @@ int
 pnull_free (void) {
     trace ("pnull_free\n");
     if (!null_terminate) {
-        if (deadbeef->thread_exist (null_tid)) {
+        if (deadbeef->thread_alive (null_tid)) {
             null_terminate = 1;
             deadbeef->thread_join (null_tid);
         }
-#ifndef __MINGW32__
-        null_tid = 0;
-#endif
+        deadbeef->thread_wipeid (&null_tid);
         state = OUTPUT_STATE_STOPPED;
         null_terminate = 0;
     }
@@ -115,7 +113,7 @@ pnull_free (void) {
 
 int
 pnull_play (void) {
-    if (!deadbeef->thread_exist (null_tid)) {
+    if (!deadbeef->thread_alive (null_tid)) {
         pnull_init ();
     }
     state = OUTPUT_STATE_PLAYING;
@@ -228,7 +226,7 @@ static DB_output_t plugin = {
     .plugin.api_vmajor = 1,
     .plugin.api_vminor = 0,
     .plugin.version_major = 1,
-    .plugin.version_minor = 0,
+    .plugin.version_minor = 1,
     .plugin.type = DB_PLUGIN_OUTPUT,
     .plugin.id = "nullout",
     .plugin.name = "Null output plugin",

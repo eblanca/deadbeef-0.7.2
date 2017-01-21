@@ -32,19 +32,25 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#endif
 #include <limits.h>
 #include "artwork_internal.h"
 #include "../../deadbeef.h"
+#ifdef __MINGW32__
+#include "../../mingw32_layer.h"
+#endif
 
 //#define trace(...) { fprintf(stderr, __VA_ARGS__); }
 #define trace(...)
 
 extern DB_functions_t *deadbeef;
 
-static uintptr_t files_mutex;
-static intptr_t tid;
-static uintptr_t thread_mutex;
-static uintptr_t thread_cond;
+static db_mutex_t files_mutex;
+static db_thread_t tid;
+static db_mutex_t thread_mutex;
+static db_cond_t thread_cond;
 static int terminate;
 static int32_t cache_expiry_seconds;
 
@@ -204,15 +210,13 @@ void cache_configchanged (void)
 
 void stop_cache_cleaner (void)
 {
-    if (deadbeef->thread_exist (tid)) {
+    if (deadbeef->thread_alive (tid)) {
         deadbeef->mutex_lock (thread_mutex);
         terminate = 1;
         deadbeef->cond_signal (thread_cond);
         deadbeef->mutex_unlock (thread_mutex);
         deadbeef->thread_join (tid);
-#ifndef __MINGW32__
-        tid = 0;
-#endif
+        deadbeef->thread_wipeid (&tid);
         trace ("Cache cleaner thread stopped\n");
     }
 
@@ -244,7 +248,7 @@ int start_cache_cleaner (void)
         trace ("Cache cleaner thread started\n");
     }
 
-    if (!deadbeef->thread_exist (tid)) {
+    if (deadbeef->thread_alive (tid)) {
         stop_cache_cleaner ();
         return -1;
     }

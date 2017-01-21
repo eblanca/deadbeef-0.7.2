@@ -25,11 +25,13 @@
 #  include <config.h>
 #endif
 
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#endif
 #include <gtk/gtk.h>
 #include <math.h>
 #include <stdlib.h>
 #ifdef __MINGW32__
-#undef __STRICT_ANSI__
 #undef _NO_OLDNAMES
 #endif
 #include <string.h>

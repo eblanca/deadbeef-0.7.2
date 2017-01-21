@@ -22,6 +22,9 @@
 */
 
 #include <string.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#endif
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>

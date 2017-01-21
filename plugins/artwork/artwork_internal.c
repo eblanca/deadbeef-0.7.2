@@ -26,6 +26,10 @@
     #include "../../config.h"
 #endif
 #include <stdlib.h>
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#undef _NO_OLDNAMES
+#endif
 #include <string.h>
 #include <libgen.h>
 #include <errno.h>
@@ -35,6 +39,9 @@
 #include <limits.h>
 #include "../../deadbeef.h"
 #include "artwork_internal.h"
+#ifdef __MINGW32__
+#include "../../mingw32_layer.h"
+#endif
 
 //#define trace(...) { fprintf(stderr, __VA_ARGS__); }
 #define trace(...)
@@ -42,7 +49,7 @@
 extern DB_functions_t *deadbeef;
 
 static DB_FILE *http_request;
-static uintptr_t http_mutex;
+static db_mutex_t http_mutex;
 
 static DB_FILE *
 new_http_request (const char *url)

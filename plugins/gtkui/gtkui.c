@@ -553,7 +553,11 @@ gtkui_update_status_icon (gpointer unused) {
 
     if (!gtk_icon_theme_has_icon(theme, icon_name)) {
         char iconpath[1024];
+#ifdef __MINGW32__
+        snprintf (iconpath, sizeof (iconpath), "%s/deadbeef.png", deadbeef->get_pixmap_dir ());
+#else
         snprintf (iconpath, sizeof (iconpath), "%s/deadbeef.png", deadbeef->get_prefix ());
+#endif
         trayicon = gtk_status_icon_new_from_file(iconpath);
     }
     else {
@@ -1060,7 +1064,11 @@ gtkui_thread (void *ctx) {
     else {
         // try loading icon from $prefix/deadbeef.png (for static build)
         char iconpath[1024];
+#ifdef __MINGW32__
+        snprintf (iconpath, sizeof (iconpath), "%s/deadbeef.png", deadbeef->get_pixmap_dir ());
+#else
         snprintf (iconpath, sizeof (iconpath), "%s/deadbeef.png", deadbeef->get_prefix ());
+#endif
         gtk_window_set_icon_from_file (GTK_WINDOW (mainwin), iconpath, NULL);
     }
 

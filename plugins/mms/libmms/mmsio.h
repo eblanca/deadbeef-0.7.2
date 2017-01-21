@@ -3,6 +3,11 @@
 
 #define LIBMMS_HAVE_64BIT_OFF_T 1
 
+#ifdef __MINGW32__
+#undef __STRICT_ANSI__
+#include <sys/types.h>
+#define mms_off_t off64_t
+#else
 /* On 64 bit file offset capable systems, libmms' configure script adds
    -D_FILE_OFFSET_BITS=64 to the CFLAGS. This causes off_t to be 64 bit,
    When an app which includes this header file gets compiled without
@@ -13,6 +18,7 @@
 #else
 #define mms_off_t off_t
 #endif
+#endif /* __MINGW32__ */
 
 #ifdef __cplusplus
 extern "C" {

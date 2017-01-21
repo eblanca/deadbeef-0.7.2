@@ -504,9 +504,7 @@ static int
 hotkeys_connect (void) {
 #ifndef __APPLE__
     finished = 0;
-#ifndef __MINGW32__
-    loop_tid = 0;
-#endif
+    deadbeef->thread_wipeid (&loop_tid);
     disp = XOpenDisplay (NULL);
     if (!disp)
     {
@@ -535,7 +533,7 @@ hotkeys_connect (void) {
 static int
 hotkeys_disconnect (void) {
 #ifndef __APPLE__
-    if (deadbeef->thread_exist (loop_tid)) {
+    if (deadbeef->thread_alive (loop_tid)) {
         finished = 1;
         deadbeef->thread_join (loop_tid);
     }

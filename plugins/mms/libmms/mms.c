@@ -28,9 +28,7 @@
 #include "config.h"
 #endif
 
-#include <unistd.h>
 #ifdef __MINGW32__
-#define _FILE_OFFSET_BITS      64 /* this will enable 64 bit integers as file offset */
 #define __USE_MINGW_FSEEK         /* request mingw internal implementation of fseeko64 */
 #undef __STRICT_ANSI__
 #undef _NO_OLDNAMES
@@ -42,9 +40,10 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #endif
+#include <unistd.h>
 #include <stdio.h>
 #ifdef __MINGW32__
-#define off_t   off64_t
+#define off_t   __int64
 #define fseeko  fseeko64
 #define ftello  ftello64
 #endif

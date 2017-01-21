@@ -789,9 +789,7 @@ lastfm_stop (void) {
         deadbeef->cond_signal (lfm_cond);
         trace ("waiting for thread to finish\n");
         deadbeef->thread_join (lfm_tid);
-#ifndef __MINGW32__
-        lfm_tid = 0;
-#endif
+        deadbeef->thread_wipeid (&lfm_tid);
         deadbeef->cond_free (lfm_cond);
         deadbeef->mutex_free (lfm_mutex);
     }
