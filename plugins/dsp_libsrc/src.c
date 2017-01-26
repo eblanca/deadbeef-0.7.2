@@ -326,7 +326,7 @@ static DB_dsp_t plugin = {
     .set_param = ddb_src_set_param,
     .get_param = ddb_src_get_param,
     .reset = ddb_src_reset,
-    .plugin.configdialog = settings_dlg,
+    .configdialog = settings_dlg,
     .can_bypass = ddb_src_can_bypass,
 };
 
