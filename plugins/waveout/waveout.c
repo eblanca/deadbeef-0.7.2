@@ -31,12 +31,18 @@
 
 #define AUDIO_BUFFER_NO                                    10  /* max number of audio blocks */
 /* block buffers have to be large enough to maintain at least 20 ms of music (maybe 25?), else stuttering may be heard */
-#define AUDIO_BUFFER_SIZE          (AUDIO_BUFFER_NO*150*1024)  /* max size reserved for audio buffers - rarely used */
-/* 20 ms of a 192 KHz 7.1 (32 bit/sample) stream require 120 kB */
-/* 25 ms of the same audio stream require 150 kB */
-/* cannot rely on time measures below 10 ms because we are really close to the NT time granularity (1/64 s),
-   so even the sound card driver may behave oddly */
 #define AUDIO_BUFFER_DURATION                              25  /* ms of audio data per block */
+/* cannot rely on time measures below 10 ms because we are really close to the NT default time granularity (1/64 s),
+   so even the sound card driver may behave oddly */
+
+
+#define AUDIO_BUFFER_MAXIMUM_REQ                            6  /* kilobytes per millisecond */
+/* 1 ms of a 192 KHz 7.1 (32 bit/sample) stream require 6 kB */
+/* this is the most demanding audio stream I can think of, so I'll use this as reference */
+/* in case of more challenging streams, then less audio blocks will be used, so everything will work anyway */
+
+/* max size reserved for audio buffers - rarely used */
+#define AUDIO_BUFFER_SIZE          (AUDIO_BUFFER_NO*AUDIO_BUFFER_MAXIMUM_REQ*AUDIO_BUFFER_DURATION*1024)
 
 #define CHARACTER_SPACE                                   ' '
 #define CHARACTER_UNDERSCORE                              '_'
