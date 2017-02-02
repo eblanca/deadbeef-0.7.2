@@ -30,7 +30,9 @@
 #include <string.h>
 #include "../../deadbeef.h"
 
-//#define trace(...) { fprintf(stderr, __VA_ARGS__); }
+#define NULLOUT_AUDIO_BLOCK_DURATION                   32 /* ms */
+
+//#define trace(...) { fprintf(stderr, __VA_ARGS__); fflush(stderr);}
 #define trace(fmt,...)
 
 static DB_output_t plugin;
@@ -40,10 +42,10 @@ static db_thread_t null_tid;
 static int null_terminate;
 static int state;
 static int nullout_simulate = 0;
-int bytesread;
+int bytesread, block_size;
 
-static void
-pnull_callback (char *stream, int len);
+//static void
+//pnull_callback (char *stream, int len);
 
 static void
 pnull_thread (void *context);
@@ -92,7 +94,8 @@ null_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
 int
 pnull_setformat (ddb_waveformat_t *fmt) {
     memcpy (&plugin.fmt, fmt, sizeof (ddb_waveformat_t));
-    trace("nullout: new format sr %d ch %d bps %d\n",plugin.fmt.samplerate,plugin.fmt.channels,plugin.fmt.bps);
+    block_size = (plugin.fmt.bps*plugin.fmt.samplerate*plugin.fmt.channels)*NULLOUT_AUDIO_BLOCK_DURATION/8000;
+    trace("nullout: new format sr %d ch %d bps %d - block_size=%d\n",plugin.fmt.samplerate,plugin.fmt.channels,plugin.fmt.bps,block_size);
     return 0;
 }
 
@@ -146,6 +149,7 @@ pnull_unpause (void) {
     return 0;
 }
 
+#if 0
 static int
 pnull_get_endianness (void) {
 #if WORDS_BIGENDIAN
@@ -154,11 +158,13 @@ pnull_get_endianness (void) {
     return 0;
 #endif
 }
+#endif
 
 static void
 pnull_thread (void *context) {
-#define AUDIO_BUFFER_SIZE (64*1024)
+#define AUDIO_BUFFER_SIZE (4*1024)
     char buf[AUDIO_BUFFER_SIZE];
+    int playable=0;
     float sleep_time;
 #ifdef __linux__
     prctl (PR_SET_NAME, "deadbeef-null", 0, 0, 0, 0);
@@ -168,20 +174,33 @@ pnull_thread (void *context) {
             break;
         }
         if (state != OUTPUT_STATE_PLAYING) {
-            usleep (10000);
+            usleep (16000);
             continue;
         }
 
-        pnull_callback (buf, AUDIO_BUFFER_SIZE);
-        /* 'consuming' audio data */
-        if (nullout_simulate && bytesread > 0)
+        //pnull_callback (buf, AUDIO_BUFFER_SIZE);
+        /* receiving audio data */
+        do
         {
-            sleep_time = 8000000.0/plugin.fmt.samplerate*bytesread/plugin.fmt.channels/plugin.fmt.bps;
+            bytesread = 0;
+            if(deadbeef->streamer_ok_to_read(AUDIO_BUFFER_SIZE))
+            {
+                bytesread = deadbeef->streamer_read (buf, AUDIO_BUFFER_SIZE);
+                playable += bytesread;
+            }
+        }
+        while(bytesread > 0 && playable < block_size);
+        /* 'consuming' audio data */
+        if (nullout_simulate)
+        {
+            sleep_time = 8000000.0/plugin.fmt.samplerate*((playable<block_size)?playable:block_size)/plugin.fmt.channels/plugin.fmt.bps;
+            playable = (playable<block_size)? 0 : (playable%block_size);
             usleep((int)sleep_time);
         }
     }
 }
 
+#if 0
 static void
 pnull_callback (char *stream, int len) {
     if (!deadbeef->streamer_ok_to_read (len)) {
@@ -195,6 +214,7 @@ pnull_callback (char *stream, int len) {
         memset (stream + bytesread, 0, len-bytesread);
     }
 }
+#endif
 
 int
 pnull_get_state (void) {
@@ -231,7 +251,7 @@ static DB_output_t plugin = {
     .plugin.id = "nullout",
     .plugin.name = "Null output plugin",
     .plugin.descr = "This plugin takes the audio data, and discards it,\nso nothing will play.\nThis is useful for testing.",
-    .plugin.copyright =
+    .plugin.copyright = 
     "Null output plugin for DeaDBeeF Player\n"
     "Copyright (C) 2009-2014 Alexey Yakovenko\n"
     "\n"
