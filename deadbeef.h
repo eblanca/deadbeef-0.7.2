@@ -603,7 +603,8 @@ typedef struct {
     db_thread_t (*thread_start_low_priority) (void (*fn)(void *ctx), void *ctx);
     int (*thread_join) (db_thread_t tid);
     int (*thread_detach) (db_thread_t tid);
-    int (*thread_exist) (db_thread_t tid);
+    int (*thread_alive) (db_thread_t tid);
+    void (*thread_wipeid) (db_thread_t *tid);
     void (*thread_exit) (void *retval);
     db_mutex_t (*mutex_create) (void);
     db_mutex_t (*mutex_create_nonrecursive) (void);
