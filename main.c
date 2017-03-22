@@ -520,7 +520,11 @@ read_entire_message (int sockfd, int *size) {
 
         int rd = recv(sockfd, buf + rdp, bufsize - rdp, 0);
         if (rd < 0) {
+#ifdef __MINGW32__
+            if (WSAGetLastError() == WSAEWOULDBLOCK) {
+#else
             if (errno == EAGAIN) {
+#endif
                 usleep (50000);
                 continue;
             }
@@ -543,7 +547,11 @@ server_update (void) {
     int t = sizeof (srv_remote);
     unsigned s2;
     s2 = accept(srv_socket, (struct sockaddr *)&srv_remote, &t);
+#ifdef __MINGW32__
+    if (s2 == -1 && WSAGetLastError() != WSAEWOULDBLOCK) {
+#else
     if (s2 == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+#endif
         perror("accept");
         return -1;
     }
