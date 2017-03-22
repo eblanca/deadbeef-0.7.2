@@ -22,6 +22,9 @@
 */
 
 #include <string.h>
+#ifdef __MINGW32__
+#define ZIP_STATIC
+#endif
 #include <zip.h>
 #include <stdlib.h>
 #include <assert.h>
