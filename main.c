@@ -164,7 +164,13 @@ prepare_command_line (int argc, char *argv[], int *size) {
         // if argument is a filename, try to resolve it
         char resolved[PATH_MAX];
         char *arg;
+#ifdef __MINGW32__
+        struct _stati64 dummy;
+        realpath (argv[i], resolved);
+        if ((!strncmp ("--", argv[i], 2) && !seen_ddash) || _stati64(argv[i], &dummy)) {
+#else
         if (!strncmp ("--", argv[i], 2) && !seen_ddash || !realpath (argv[i], resolved)) {
+#endif
             arg = argv[i];
         }
         else {
