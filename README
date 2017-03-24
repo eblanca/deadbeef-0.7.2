@@ -70,19 +70,20 @@ MinGW section
 The needed libraries above will build and install almost out-of-the-box.
 For jansson, download some recent version (>=2.8), because I committed a fix for mingw environment which allows the full test suite to complete.
 
-With recent versions of pthreads-win32 (installed with msys1/mingw) you'll have to comment out the declaration of timespec struct type (into pthread.h), since it is already declared in parts/time.h and this will raise a compilation error. (seems this is not needed anymore...)
+With recent versions of pthreads-win32 (installed with msys1/mingw) you'll have to comment out the declaration of timespec struct type (into pthread.h), since it is already declared in parts/time.h and having both will raise a compilation error. (seems this is not needed anymore...)
 
-You'll get a ready-to-go binary zip file with GTK+2.24.10 on www.gtk.org, it contains also every single dependency library needed for deadbeef (gdk, glib, gthread, pango, cairo, atk and so on).
+You'll get a ready-to-go binary zip file with GTK+2.24.10 on www.gtk.org, it contains also every single dependency library needed for deadbeef (gdk, glib, gthread, pango, cairo, atk and so on) and they're all built as DLL.
 Well, if you prefer GTK+3 or any other gtk release, feel free to try. Version 2 is what I used, since it is easy to go with.
 
 At the time of writing, I am quite confident a minimal deadbeef binary can be built with:
 
-./configure --disable-gtk3 --disable-vtx --disable-gme --disable-sid --disable-adplug --disable-wildmidi --disable-tta --disable-psf --disable-dumb --disable-shn --disable-sc68 --disable-shellexec --disable-ffap --disable-alac --disable-nls --disable-converter
+./configure --disable-vtx --disable-gme --disable-sid --disable-adplug --disable-wildmidi --disable-psf --disable-dumb --disable-shn --disable-sc68 --disable-shellexec --disable-ffap --disable-nls --disable-converter
 
-It will support mpeg1/2 (if you install libmad and/or mpg123), aac (if you install faad2), vorbis (if you install libogg and libvorbis), musepack (it is shipped with deadbeef), flac (if you install flac), wavpack (if you install wavpack), sndfile (if you install libsndfile) and wma decoding and resampling (if you install libsamplerate aka SecretRabbitCode). (maybe something else, disable what's unwanted)
+It will support mpeg1/2 (if you install libmad and/or mpg123), aac (if you install faad2), vorbis (if you install libogg and libvorbis), musepack (it is shipped with deadbeef), flac (if you install flac), wavpack (if you install wavpack), sndfile (if you install libsndfile) and wma decoding (shipped) and resampling (if you install libsamplerate aka SecretRabbitCode). (maybe something else, disable what's unwanted)
 
-The default null output plugin will be built, and I added a nice feature simulating the audio output delay. Quite useful, sometimes - it still needs a fix though.
-The WaveOut output plugin version 1.0 is now ready, and it can play sounds through any audio device your OS currently supports. The deadbeef preference window lets you choose among the devices detected by the plugin.
+The default null output plugin will be built, and I added a nice feature simulating real audio output delay. Quite useful, sometimes.
+The WaveOut output plugin version 1.0 is now ready and it can play sounds through any audio device your OS currently supports. The deadbeef preference window lets you choose among the devices detected by the plugin.
+QUALITY: a few tests I run on Windows7 platform (NOT into a VM) revealed some audio artifact and far metallic echoes during playback. The same audio source sounds far better when played through DirectSound API (same hardware involved). Well, the WaveOut plugin has no flaws (none I'm aware of), IMHO this means the audio content is "enriched" with a light DSP by the audio driver in the latter case. After all, the WaveOut interface is pretty old and those kind of scenarios may push everyone in software migration. If I'll have some time, then I'll write a DirectSound output plugin, although the current WaveOut plugin works indeed.
 
 After the usual 'make' the main executable should be built (linking against wsock32 is needed).
 Note: chances are that recent mingw compiler (gcc) creates an executable which needs an extra lib, called libgcc_s_dw2-1.dll.
@@ -98,8 +99,8 @@ Go into the plugin directory (you have to follow this step for every plugin you 
 
 gcc -s -shared -o somethingplugin.dll *.o libdependency.a -Wl,-no-undefined -Wl,--enable-runtime-pseudo-reloc
 
-where somethingplugin.dll is the name of the output dll. Replace that *.o with the object files created by make and those libdependency.a with the library needed for the full linking process. For example, when linking the mp3 deconding library, mp3.dll, you will need to link libmad.a (and/or libmpg123.a) also (include their FULL path!).
-Naming:  IT IS MANDATORY the dll has to be named as the plugin it contains! If different, deadbeef won't find the entry point for the functions it searches it in.
+where somethingplugin.dll is the name of the output dll. Replace that *.o with the object files created by make (usually you'll find them into .libs/) and those libdependency.a with the library needed for the full linking process. For example, when linking the mp3 deconding library, mp3.dll, you will need to link libmad.a (and/or libmpg123.a) also (include their FULL path!).
+Naming:  IT IS MANDATORY the dll has to be named as the plugin it contains (and case DOES matter)! If different, deadbeef won't find the entry point for the functions it searches it in.
 The only exception is for gui plugins, they are named accordingly to the rules reported here https://github.com/Alexey-Yakovenko/deadbeef/wiki/Developing-your-own-plugin . Anyway, if in doubt, name the plugin exactly as its linux counterpart, just with .dll extension.
 
 Copy the dll file into the plugins/ directory and the whole game will play nicely.
